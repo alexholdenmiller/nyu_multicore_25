@@ -25,6 +25,7 @@ module load python-3.9
 virtualenv venv
 source venv/bin/activate
 pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cpu
+module load gcc-9.2
 python setup.py install
 python test.py
 ```
