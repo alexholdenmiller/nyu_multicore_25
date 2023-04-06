@@ -19,9 +19,21 @@ std::vector<at::Tensor> lltm_forward(
   auto gate_weights = torch::addmm(bias, X, weights.transpose(0, 1));
   auto gates = gate_weights.chunk(3, /*dim=*/1);
 
-  auto input_gate = torch::sigmoid(gates[0]);
-  auto output_gate = torch::sigmoid(gates[1]);
-  auto candidate_cell = torch::elu(gates[2], /*alpha=*/1.0);
+  at::Tensor input_gate;
+  at::Tensor output_gate;
+  at::Tensor candidate_cell;
+
+  # pragma omp parallel sections num_threads(3)
+  {
+    # pragma omp section
+    input_gate = torch::sigmoid(gates[0]);
+
+    # pragma omp section
+    output_gate = torch::sigmoid(gates[1]);
+
+    # pragma omp section
+    candidate_cell = torch::elu(gates[2], /*alpha=*/1.0);
+  }
 
   auto new_cell = old_cell + candidate_cell * input_gate;
   auto new_h = torch::tanh(new_cell) * output_gate;
@@ -80,7 +92,9 @@ std::vector<torch::Tensor> lltm_backward(
   at::Tensor d_X;
   at::Tensor d_old_h;
   at::Tensor d_input;
-  // # pragma omp parallel sections num_threads(1)
+  // this isn't good: num_threads(1) slows it down a TON, num_threads(>1) crashes
+  // maybe can't use pragmas in sections with matrix multiplies? may clash with pytorch multithreading
+  // # pragma omp parallel sections
   {
     // # pragma omp section
     d_weights = d_gates.t().mm(X);
