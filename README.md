@@ -14,7 +14,7 @@ but couldn't figure out why this was the case (and it didn't prevent the code fr
 
 
 
-Crunchy1
+snappy1
 
 ```shell
 //ssh to cims accounts
