@@ -14,18 +14,18 @@ but couldn't figure out why this was the case (and it didn't prevent the code fr
 
 
 
-snappy1
+Snappy1 has Intel CPU if we try to use Intel-extension-for-PyTorch.
 
 ```shell
-//ssh to cims accounts
+//ssh to CIMS accounts
 //ssh xxx@snappy1.cims.nyu.edu
-//upload the project to the cims
+//clone the project to the CIMS
 cd nyu_multicore_25
 module load python-3.9
 virtualenv venv
 source venv/bin/activate
 pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cpu
-module load gcc-9.2
+module load gcc-9.2 
 cd lltm-extension/ && python setup.py install
 python test.py
 ```
