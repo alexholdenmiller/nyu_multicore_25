@@ -18,7 +18,7 @@ Crunchy1
 
 ```shell
 //ssh to cims accounts
-//ssh xxx@crunchy1.cims.nyu.edu
+//ssh xxx@snappy1.cims.nyu.edu
 //upload the project to the cims
 cd nyu_multicore_25
 module load python-3.9
