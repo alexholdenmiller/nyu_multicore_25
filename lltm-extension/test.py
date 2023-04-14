@@ -96,34 +96,36 @@ if __name__ == "__main__":
     rnn_py = LLTMpy(input_features, state_size)
 
     # counters stored in arrays to enable modifying from within functions below
-    forward_cpp = [0]
-    backward_cpp = [0]
-    forward_py = [0]
-    backward_py = [0]
+    forward_cpp = 0
+    backward_cpp = 0
+    forward_py = 0
+    backward_py = 0
 
     def cpp_compute():
+        global forward_cpp, backward_cpp
         start = time.time()
         new_h, new_C = rnn_cpp(X, (h, C))
-        forward_cpp[0] += time.time() - start
+        forward_cpp += time.time() - start
 
         start = time.time()
         (new_h.sum() + new_C.sum()).backward()
-        backward_cpp[0] += time.time() - start
+        backward_cpp += time.time() - start
     
     def py_compute():
+        global forward_py, backward_py
         start = time.time()
         new_h, new_C = rnn_py(X, (h, C))
-        forward_py[0] += time.time() - start
+        forward_py += time.time() - start
 
         start = time.time()
         (new_h.sum() + new_C.sum()).backward()
-        backward_py[0] += time.time() - start
+        backward_py += time.time() - start
 
     N = 10000
     for _ in range(N):
         py_compute()
         cpp_compute()
 
-    print('C++    == Forward: {:.3f} s | Backward {:.3f} s'.format(forward_cpp[0], backward_cpp[0]))
-    print('PyThon == Forward: {:.3f} s | Backward {:.3f} s'.format(forward_py[0], backward_py[0]))
+    print('C++    == Forward: {:.3f} s | Backward {:.3f} s'.format(forward_cpp, backward_cpp))
+    print('PyThon == Forward: {:.3f} s | Backward {:.3f} s'.format(forward_py, backward_py))
 
