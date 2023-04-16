@@ -1,4 +1,7 @@
 #include <torch/extension.h>
+#include <torch/torch.h>
+#include <iostream>
+#include <vector>
 
 class Base : public torch::nn::Module {
 public:
@@ -33,7 +36,4 @@ torch::Tensor Base::forward(torch::Tensor x) {
     return linear3(x);
 }
 
-PYBIND11_MODULE(TORCH_EXTENSION_NAME, m
-) {
-m.def("forward", &forward, "Base forward");
-}
+TORCH_MODULE(Base);
