@@ -5,6 +5,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
+
 # function to count number of parameters
 def get_n_params(model):
     count=0
