@@ -111,25 +111,7 @@ if __name__ == "__main__":
             o2 = cpp_p_compute()
             o3 = cpp_f_compute()
 
-
-    def prune_mlp(MLP_py):
-        """
-            prune lin_in and lin_out layer of MLP models, not including MLPcpp_forward model
-            MLPcpp_forward model does not use torch.nn, so it cannot use this method directly.
-        """
-        parameters_to_prune = (
-            (MLP_py.lin_in, 'weight'),
-            (MLP_py.lin_out, 'weight')
-        )
-
-        prune.global_unstructured(
-            parameters_to_prune,
-            pruning_method=prune.L1Unstructured,
-            amount=0.2,
-        )
-
-    prune_mlp(mlp_py)
-    prune_mlp(mlp_cpp_p)
+    mlp_py.prune()
     # check if the final parameters are same
     print("Are parameter values of model1 and model2 the same?",
           torch.equal(o1, o2))
