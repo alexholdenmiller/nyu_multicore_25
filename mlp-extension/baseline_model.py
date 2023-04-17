@@ -1,4 +1,4 @@
-
+import math
 import time
 import torch
 import torch.nn as nn
@@ -15,22 +15,26 @@ def get_n_params(model):
         count += n
     return count
 
-class Base(nn.Module):
+class MLP(nn.Module):
     def __init__(self, input_size, hidden_dim, output_size, n_hidden):
-        super(Base, self).__init__()
+        super().__init__()
 
         if n_hidden < 1:
             raise RuntimeError("n_hidden must be at least one")
         
-        #define our functions
         self.relu = nn.ReLU()
+        self.hidden_dim = hidden_dim
         self.lin_in = nn.Linear(input_size, hidden_dim, False)
         self.lin_out = nn.Linear(hidden_dim, output_size, False)
         self.layers = [nn.Linear(hidden_dim, hidden_dim, False) for _ in range(n_hidden - 1)]
         self.num_hidden_layers = n_hidden - 1
+    
+    def reset_parameters(self):
+        stdv = 1.0 / math.sqrt(self.hidden_dim)
+        for weight in self.parameters():
+            weight.data.uniform_(-stdv, +stdv)
 
     def forward(self, x):
-        #create the architechture for the model
         x = self.relu(self.lin_in(x))
         for layer in self.layers:
             x = self.relu(layer(x))
@@ -45,7 +49,7 @@ if __name__ == "__main__":
 
     X = torch.randn(input_size)
 
-    model = Base(input_size, hidden_layer_features, output_size, model_layers)
+    model = MLP(input_size, hidden_layer_features, output_size, model_layers)
 
     total_time = 0
     N = 1000000
