@@ -1,5 +1,4 @@
-import math
-import random
+
 import time
 import torch
 import torch.nn as nn
@@ -8,43 +7,43 @@ import torch.nn.functional as F
 
 # function to count number of parameters
 def get_n_params(model):
-    count=0
+    count = 0
     for param in list(model.parameters()):
-        n=1
+        n = 1
         for s in list(param.size()):
             n = n*s
         count += n
     return count
 
 class Base(nn.Module):
-    def __init__(self, input_size, n_hidden, output_size, model_layers):
+    def __init__(self, input_size, hidden_dim, output_size, n_hidden):
         super(Base, self).__init__()
+
+        if n_hidden < 1:
+            raise RuntimeError("n_hidden must be at least one")
         
         #define our functions
-        self.flatten = nn.Flatten()
         self.relu = nn.ReLU()
-        self.linear1 = nn.Linear(input_size, n_hidden)
-        self.linear2 = nn.Linear(n_hidden, n_hidden)
-        self.linear3 = nn.Linear(n_hidden, output_size)
-        self.layers = model_layers
+        self.lin_in = nn.Linear(input_size, hidden_dim, False)
+        self.lin_out = nn.Linear(hidden_dim, output_size, False)
+        self.layers = [nn.Linear(hidden_dim, hidden_dim, False) for _ in range(n_hidden - 1)]
+        self.num_hidden_layers = n_hidden - 1
 
     def forward(self, x):
         #create the architechture for the model
-        x = self.flatten(x)
-        x = self.relu(self.linear1(x))
-        for _ in range(self.layers - 1):
-            x = self.relu(self.linear2(x))
+        x = self.relu(self.lin_in(x))
+        for layer in self.layers:
+            x = self.relu(layer(x))
         
-        return self.linear3(x)
+        return self.lin_out(x)
 
 if __name__ == "__main__":
-    batch_size = 16
     input_size = 65536
     model_layers = 10
     hidden_layer_features = 2048
     output_size= 8
 
-    X = torch.randn(batch_size, input_size)
+    X = torch.randn(input_size)
 
     model = Base(input_size, hidden_layer_features, output_size, model_layers)
 

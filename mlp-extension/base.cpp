@@ -15,12 +15,11 @@ private:
 };
 
 Base::Base(int64_t input_size, int64_t n_hidden, int64_t output_size, int64_t model_layers)
-        : flatten(torch::nn::Flatten()), relu(torch::nn::ReLU()),
+        : relu(torch::nn::ReLU()),
           linear1(torch::nn::Linear(input_size, n_hidden)),
           linear2(torch::nn::Linear(n_hidden, n_hidden)),
           linear3(torch::nn::Linear(n_hidden, output_size)),
           layers(model_layers) {
-    register_module("flatten", flatten);
     register_module("relu", relu);
     register_module("linear1", linear1);
     register_module("linear2", linear2);
@@ -28,7 +27,6 @@ Base::Base(int64_t input_size, int64_t n_hidden, int64_t output_size, int64_t mo
 }
 
 torch::Tensor Base::forward(torch::Tensor x) {
-    x = flatten(x);
     x = relu(linear1(x));
     for (int i = 0; i < layers - 1; i++) {
         x = relu(linear2(x));
