@@ -2,13 +2,7 @@
 #include <iostream>
 #include <vector>
 
-at::Tensor mm(
-    torch::Tensor input,
-    torch::Tensor weights
-) {
-    return input.mm(weights);
-}
-
+// matrix multiply with a transpose
 at::Tensor mm_t(
     torch::Tensor input,
     torch::Tensor weights
@@ -16,13 +10,7 @@ at::Tensor mm_t(
     return input.mm(weights.t());
 }
 
-at::Tensor mm_relu(
-    torch::Tensor input,
-    torch::Tensor weights
-) {
-    return torch::relu(input.mm(weights));
-}
-
+// matrix multiply with transpose and relu
 at::Tensor mm_t_relu(
     torch::Tensor input,
     torch::Tensor weights
@@ -30,6 +18,7 @@ at::Tensor mm_t_relu(
     return torch::relu(input.mm(weights.t()));
 }
 
+// full mlp forward given input weights, output weights, and 3D matrix of hidden layer weights
 at::Tensor mlp_forward(
     torch::Tensor input,
     torch::Tensor in_weights,
@@ -46,9 +35,7 @@ at::Tensor mlp_forward(
 
 
 PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
-  m.def("mm", &mm, "matrix multiply");
   m.def("mm_t", &mm_t, "matrix multiply with transpose");
-  m.def("mm_relu", &mm_relu, "matrix multiply with  relu");
   m.def("mm_t_relu", &mm_t_relu, "matrix multiply with transpose and relu");
   m.def("mlp_forward", &mlp_forward, "mlp forward");
 }
