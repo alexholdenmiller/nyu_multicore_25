@@ -26,6 +26,13 @@ class MLPcpp_forward(nn.Module):
     """
     this version places the entire forward call into cpp
     expected this to be clearly faster, but was about the same speed
+
+    improvements:
+    - calling into cpp once vs once per Linear layer
+    - no transposes
+    - no nn.Parameter overhead
+
+    maybe would work better for different matrix sizes / shapes
     """
     def __init__(self, input_size, hidden_dim, output_size, n_hidden):
         super().__init__()
@@ -43,8 +50,8 @@ class MLPcpp_forward(nn.Module):
 
     def reset_parameters(self):
         stdv = 1.0 / math.sqrt(self.hidden_dim)
-        for weight in self.parameters():
-            weight.data.uniform_(-stdv, +stdv)
+        for weight in (self.lin_in, self.lin_out, self.layers):
+            weight.uniform_(-stdv, +stdv)
     
     def forward(self, x):
         return mlp_cpp_lib.mlp_forward(x, self.lin_in, self.layers, self.lin_out, self.num_hidden_layers)
@@ -53,9 +60,9 @@ class MLPcpp_forward(nn.Module):
 
 if __name__ == "__main__":
     input_size = 65536
-    model_layers = 10
-    hidden_layer_features = 2048
-    output_size = 8
+    model_layers = 32
+    hidden_layer_features = 1024
+    output_size = 32
 
     X = torch.randn(1, input_size)
 
@@ -85,16 +92,17 @@ if __name__ == "__main__":
         _output = mlp_py(X)
         forward_py += time.time() - start
 
-    N = 1000
+    N = 100
     with torch.no_grad():
         for _ in range(N):
             py_compute()
             cpp_p_compute()
             cpp_f_compute()
 
+    print(f'Python   == Forward: {forward_py:.3f} s')
     print(f'C++ Prim == Forward: {forward_cpp_p:.3f} s')
     print(f'C++ Forw == Forward: {forward_cpp_f:.3f} s')
-    print(f'Python   == Forward: {forward_py:.3f} s')
     print(f'C++ primitives version ran at {forward_py / forward_cpp_p:.3f}x speed vs python')
-    print(f'C++ forward version ran at {forward_py / forward_cpp_f:.3f}x speed vs python')
+    print(f'C++ full forward version ran at {forward_py / forward_cpp_f:.3f}x speed vs python')
+    print(f'C++ full forward version ran at {forward_cpp_p / forward_cpp_f:.3f}x speed vs cpp primitives')
 
