@@ -50,7 +50,7 @@ class MLP(nn.Module):
 
         return self.lin_out(x)
     
-    def prune(self, amt):
+    def prune(self, amt=0.3):
         return prune(self.parameters(), amt)
 
 
