@@ -16,6 +16,13 @@ def get_n_params(model):
         count += n
     return count
 
+def prune(parameters, amt):
+    prune.global_unstructured(
+        parameters,
+        pruning_method=prune.L1Unstructured,
+        amount=amt,
+    )
+
 
 class MLP(nn.Module):
     def __init__(self, input_size, hidden_dim, output_size, n_hidden):
@@ -42,22 +49,9 @@ class MLP(nn.Module):
             x = self.relu(layer(x))
 
         return self.lin_out(x)
-
-    def prune(self):
-        """
-            prune lin_in and lin_out layer of MLP models, not including MLPcpp_forward model
-            MLPcpp_forward model does not use torch.nn, so it cannot use this method directly.
-        """
-        parameters_to_prune = (
-                                  (self.lin_in, 'weight'),
-                                  (self.lin_out, 'weight'),
-                              ) + tuple((layer, 'weight') for layer in self.layers)
-
-        prune.global_unstructured(
-            parameters_to_prune,
-            pruning_method=prune.L1Unstructured,
-            amount=0.2,
-        )
+    
+    def prune(self, amt):
+        return prune(self.parameters(), amt)
 
 
 if __name__ == "__main__":

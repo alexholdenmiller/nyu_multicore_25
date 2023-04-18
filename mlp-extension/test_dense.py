@@ -6,7 +6,7 @@ from torch import nn
 import torch.nn.utils.prune as prune
 import torch.nn.functional as F
 
-from baseline_model import MLP as MLPpy
+from baseline_model import MLP as MLPpy, prune
 
 # Our module!
 import mlp_cpp_lib
@@ -19,6 +19,7 @@ class MLPcpp_primitives(MLPpy):
     """
 
     def forward(self, x):
+        x = x.squeeze()
         x = mlp_cpp_lib.mm_t_relu(x, self.lin_in.weight)
         for layer in self.layers:
             x = mlp_cpp_lib.mm_t_relu(x, layer.weight)
@@ -29,14 +30,10 @@ class MLPcpp_primitives(MLPpy):
 class MLPcpp_forward(nn.Module):
     """
     this version places the entire forward call into cpp
-    expected this to be clearly faster, but was about the same speed
+    expected this to be clearly faster, but was about the same
 
-    improvements:
-    - calling into cpp once vs once per Linear layer
-    - no transposes
-    - no nn.Parameter overhead
-
-    maybe would work better for different matrix sizes / shapes
+    since this implements the whole function in cpp it should be a bit faster
+    maybe would work better for different matrix sizes / shapes?
     """
 
     def __init__(self, input_size, hidden_dim, output_size, n_hidden):
@@ -46,9 +43,9 @@ class MLPcpp_forward(nn.Module):
             raise RuntimeError("n_hidden must be at least one")
 
         self.hidden_dim = hidden_dim
-        self.lin_in = torch.Tensor(input_size, hidden_dim)
-        self.lin_out = torch.Tensor(hidden_dim, output_size)
-        self.layers = torch.Tensor(n_hidden - 1, hidden_dim, hidden_dim)
+        self.lin_in = nn.Parameter(torch.Tensor(hidden_dim, input_size))
+        self.lin_out = nn.Parameter(torch.Tensor(output_size, hidden_dim))
+        self.layers = nn.Parameter(torch.Tensor(n_hidden - 1, hidden_dim, hidden_dim))
         self.num_hidden_layers = n_hidden - 1
 
         self.reset_parameters()
@@ -56,10 +53,13 @@ class MLPcpp_forward(nn.Module):
     def reset_parameters(self):
         stdv = 1.0 / math.sqrt(self.hidden_dim)
         for weight in (self.lin_in, self.lin_out, self.layers):
-            weight.uniform_(-stdv, +stdv)
+            weight.data.uniform_(-stdv, +stdv)
 
     def forward(self, x):
-        return mlp_cpp_lib.mlp_forward(x, self.lin_in, self.layers, self.lin_out, self.num_hidden_layers)
+        return mlp_cpp_lib.mlp_forward(x.squeeze(), self.lin_in, self.layers, self.lin_out, self.num_hidden_layers)
+    
+    def prune(self, amt):
+        prune(self.parameters(), amt)
 
 
 if __name__ == "__main__":
@@ -67,12 +67,34 @@ if __name__ == "__main__":
     model_layers = 32
     hidden_layer_features = 1024
     output_size = 32
+    PRUNE = False
 
-    X = torch.randn(1, input_size)
+    X = torch.randn(1, input_size)  # fix batch size to one
 
     mlp_py = MLPpy(input_size, hidden_layer_features, output_size, model_layers)
     mlp_cpp_p = MLPcpp_primitives(input_size, hidden_layer_features, output_size, model_layers)
     mlp_cpp_f = MLPcpp_forward(input_size, hidden_layer_features, output_size, model_layers)
+
+    if PRUNE:
+        mlp_py.prune()
+        mlp_cpp_p.prune()
+        mlp_cpp_f.prune()
+
+    # set models to same underlying weights
+    # TODO: copy weights from mlp_py into the other two models
+    #       the prints below should return false until this is done
+
+    # confirm the model parameters and computation are the same
+    o1 = mlp_py(X)
+    o2 = mlp_cpp_p(X)
+    o3 = mlp_cpp_f(X)
+    print("Are parameter values of model1 and model2 the same?",
+        torch.equal(o1, o2))
+    print("Are parameter values of model1 and model3 the same?",
+        torch.equal(o1, o3))
+    print("Are parameter values of model2 and model3 the same?",
+        torch.equal(o2, o3))
+    
 
     forward_py = 0
     forward_cpp_p = 0
@@ -84,16 +106,13 @@ if __name__ == "__main__":
         start = time.time()
         _output = mlp_cpp_p(X)
         forward_cpp_p += time.time() - start
-        return _output
 
 
     def cpp_f_compute():
         global forward_cpp_f
         start = time.time()
-        # I am wondering if this line should be mlp_cpp_f(x) instead of _output = mlp_cpp_p(X)
         _output = mlp_cpp_f(X)
         forward_cpp_f += time.time() - start
-        return _output
 
 
     def py_compute():
@@ -101,24 +120,13 @@ if __name__ == "__main__":
         start = time.time()
         _output = mlp_py(X)
         forward_py += time.time() - start
-        return _output
-
 
     N = 100
     with torch.no_grad():
         for _ in range(N):
-            o1 = py_compute()
-            o2 = cpp_p_compute()
-            o3 = cpp_f_compute()
-
-    mlp_py.prune()
-    # check if the final parameters are same
-    print("Are parameter values of model1 and model2 the same?",
-          torch.equal(o1, o2))
-    print("Are parameter values of model1 and model3 the same?",
-          torch.equal(o1, o3))
-    print("Are parameter values of model2 and model3 the same?",
-          torch.equal(o2, o3))
+            py_compute()
+            cpp_p_compute()
+            cpp_f_compute()
 
     print(f'Python   == Forward: {forward_py:.3f} s')
     print(f'C++ Prim == Forward: {forward_cpp_p:.3f} s')
