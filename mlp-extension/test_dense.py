@@ -3,7 +3,6 @@ import time
 import torch
 
 from torch import nn
-import torch.nn.utils.prune as prune
 import torch.nn.functional as F
 
 from baseline_model import MLP as MLPpy, prune
@@ -62,9 +61,20 @@ class MLPcpp_forward(nn.Module):
 
     def forward(self, x):
         return mlp_cpp_lib.mlp_forward(x.squeeze(), self.lin_in, self.layers, self.lin_out, self.num_hidden_layers)
-    
-    def prune(self, amt):
+
+    def prune(self, amt=0.9):
         prune(self.parameters(), amt)
+
+
+class MLPcpp_sparse(MLPcpp_forward):
+    """
+    copies pure-python init, uses own matrix multiply / relu calls
+    runs at basically the same speed as python version
+    """
+
+    def forward_next(self, x):
+        return mlp_cpp_lib.mlp_sparse_forward(x.squeeze(), self.lin_in, self.layers, self.lin_out,
+                                              self.num_hidden_layers)
 
 
 if __name__ == "__main__":
@@ -79,6 +89,11 @@ if __name__ == "__main__":
     mlp_py = MLPpy(input_size, hidden_layer_features, output_size, model_layers)
     mlp_cpp_p = MLPcpp_primitives(input_size, hidden_layer_features, output_size, model_layers)
     mlp_cpp_f = MLPcpp_forward(input_size, hidden_layer_features, output_size, model_layers)
+    mlp_cpp_s = MLPcpp_sparse(input_size, hidden_layer_features, output_size, model_layers)
+
+    #Copy weights from mlp_py to mlp_cpp_p
+    mlp_cpp_p.load_state_dict(mlp_py.state_dict())
+    mlp_cpp_f.load_parameters(mlp_py.state_dict())
 
     #Copy weights from mlp_py to mlp_cpp_p
     mlp_cpp_p.load_state_dict(mlp_py.state_dict())
@@ -88,6 +103,7 @@ if __name__ == "__main__":
         mlp_py.prune()
         mlp_cpp_p.prune()
         mlp_cpp_f.prune()
+        mlp_cpp_s.prune()
 
     # set models to same underlying weights
     # TODO: copy weights from mlp_py into the other two models
@@ -108,6 +124,7 @@ if __name__ == "__main__":
     forward_py = 0
     forward_cpp_p = 0
     forward_cpp_f = 0
+    forward_cpp_s = 0
 
 
     def cpp_p_compute():
@@ -130,16 +147,26 @@ if __name__ == "__main__":
         _output = mlp_py(X)
         forward_py += time.time() - start
 
+
+    def cpp_s_compute():
+        global forward_cpp_s
+        start = time.time()
+        _output = mlp_cpp_s(X)
+        forward_cpp_s += time.time() - start
+
+
     N = 100
     with torch.no_grad():
         for _ in range(N):
             py_compute()
             cpp_p_compute()
             cpp_f_compute()
+            # cpp_s_compute()
 
     print(f'Python   == Forward: {forward_py:.3f} s')
     print(f'C++ Prim == Forward: {forward_cpp_p:.3f} s')
     print(f'C++ Forw == Forward: {forward_cpp_f:.3f} s')
+    print(f'C++ Spars == Forward: {forward_cpp_s:.3f} s')
     print(f'C++ primitives version ran at {forward_py / forward_cpp_p:.3f}x speed vs python')
     print(f'C++ full forward version ran at {forward_py / forward_cpp_f:.3f}x speed vs python')
     print(f'C++ full forward version ran at {forward_cpp_p / forward_cpp_f:.3f}x speed vs cpp primitives')
