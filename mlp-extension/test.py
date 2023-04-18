@@ -87,9 +87,9 @@ class MLPcpp_sparse(MLPpy):
 
 
 if __name__ == "__main__":
-    input_size = 4096
-    model_layers = 5
-    hidden_layer_features = 128
+    input_size = 2048
+    model_layers = 3
+    hidden_layer_features = 256
     output_size = 32
     PRUNE = True
 
