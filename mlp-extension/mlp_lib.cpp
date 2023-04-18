@@ -46,17 +46,19 @@ std::tuple <at::Tensor, at::Tensor, at::Tensor> to_csr(const at::Tensor &matrix)
     const int64_t nnz = matrix.nonzero().size(0);
 
     // initialize the three arrays
-    auto V = torch::empty({nnz}, matrix.options());
-    auto COL_INDEX = torch::empty({nnz}, matrix.options());
-    auto ROW_INDEX = torch::empty({m + 1}, matrix.options());
+    auto f_opt = torch::TensorOptions().dtype(torch::kFloat32).requires_grad(false);
+    auto i_opt = torch::TensorOptions().dtype(torch::kInt32).requires_grad(false);
+    auto V = torch::empty({nnz}, f_opt);
+    auto COL_INDEX = torch::empty({nnz}, i_opt);
+    auto ROW_INDEX = torch::empty({m + 1}, i_opt);
 
     // iterate all the data in the matrix and store them into the arrays
     int64_t num_of_value = 0; // number of values before row i
     for (int64_t i = 0; i < m; i++) {
         ROW_INDEX[i] = num_of_value;
         for (int64_t j = 0; j < n; j++) {
-            const auto value = matrix[i][j].item<float>();
-            if (value != 0.0) {
+            const auto value = matrix[i][j];
+            if (value.item<float>() != 0.0) {
                 V[num_of_value] = value;
                 COL_INDEX[num_of_value] = j;
                 num_of_value++;
@@ -89,7 +91,7 @@ torch::Tensor csr_sparse_mv(
     // sparse matrix multiply vector
     for (int i = 0; i < m; i++) {
         for (int j = A_ROW_INDEX[i].item<int>(); j < A_ROW_INDEX[i+1].item<int>(); j++) {
-            result[i] += A_V[j] * x[A_COL_INDEX[j].item<int>()];
+            result[i] += A_V[j] * x[A_COL_INDEX[j]];
         }
     }
 
