@@ -63,7 +63,7 @@ class MLPcpp_forward(nn.Module):
         return mlp_cpp_lib.mlp_forward(x.squeeze(), self.lin_in, self.layers, self.lin_out, self.num_hidden_layers)
 
     def prune(self, amt=0.9):
-        prune(self.parameters(), amt)
+        prune(self, amt)
 
 
 class MLPcpp_sparse(MLPcpp_forward):
@@ -92,18 +92,13 @@ if __name__ == "__main__":
     mlp_cpp_s = MLPcpp_sparse(input_size, hidden_layer_features, output_size, model_layers)
 
     #Copy weights from mlp_py to mlp_cpp_p
-    mlp_cpp_p.load_state_dict(mlp_py.state_dict())
-    mlp_cpp_f.load_parameters(mlp_py.state_dict())
 
     if PRUNE:
         mlp_py.prune()
-        mlp_cpp_p.prune()
-        mlp_cpp_f.prune()
-        mlp_cpp_s.prune()
 
     # set models to same underlying weights
-    # TODO: copy weights from mlp_py into the other two models
-    #       the prints below should return false until this is done
+    mlp_cpp_p.load_state_dict(mlp_py.state_dict())
+    mlp_cpp_f.load_parameters(mlp_py.state_dict())
 
     # confirm the model parameters and computation are the same
     o1 = mlp_py(X)
@@ -162,7 +157,7 @@ if __name__ == "__main__":
     print(f'Python   == Forward: {forward_py:.3f} s')
     print(f'C++ Prim == Forward: {forward_cpp_p:.3f} s')
     print(f'C++ Forw == Forward: {forward_cpp_f:.3f} s')
-    print(f'C++ Spars == Forward: {forward_cpp_s:.3f} s')
+    print(f'C++ CSR  == Forward: {forward_cpp_s:.3f} s')
     print(f'C++ primitives version ran at {forward_py / forward_cpp_p:.3f}x speed vs python')
     print(f'C++ full forward version ran at {forward_py / forward_cpp_f:.3f}x speed vs python')
     print(f'C++ full forward version ran at {forward_cpp_p / forward_cpp_f:.3f}x speed vs cpp primitives')

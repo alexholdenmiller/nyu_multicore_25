@@ -37,3 +37,13 @@ https://pytorch.org/tutorials/advanced/cpp_extension.html
 in the lltm-extension directory, run `python setup.py install` in order to compile the c++ extension
 
 then run `python test.py` to evaluate the difference between implementing the model in c++ vs python
+
+
+# running the mlp evaluation
+
+same as above:
+```
+cd mlp-extension
+python setup.py install
+python test.py
+```

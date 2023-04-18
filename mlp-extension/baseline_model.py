@@ -3,7 +3,7 @@ import time
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-import torch.nn.utils.prune as prune
+import torch.nn.utils.prune as prune_lib
 
 
 # function to count number of parameters
@@ -18,11 +18,13 @@ def get_n_params(model):
 
 
 def prune(parameters, amt):
-    prune.global_unstructured(
+    prune_lib.global_unstructured(
         parameters,
-        pruning_method=prune.L1Unstructured,
+        pruning_method=prune_lib.L1Unstructured,
         amount=amt,
     )
+    for module, name in parameters:
+        prune_lib.remove(module, name)
 
 
 class MLP(nn.Module):
@@ -53,7 +55,9 @@ class MLP(nn.Module):
         return self.flatten(self.lin_out(x))
     
     def prune(self, amt=0.9):
-        return prune(self.parameters(), amt)
+        param_list = [(self.lin_in, 'weight'), (self.lin_out, 'weight')] + [(layer, 'weight') for layer in self.layers]
+        prune(param_list, amt)
+
 
 
 if __name__ == "__main__":
