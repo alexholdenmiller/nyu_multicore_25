@@ -70,18 +70,13 @@ class MLPcpp_sparse(MLPpy):
     """
     uses sparse CSR format instead of dense computations
     """
-
-    def __init__(self, *args):
-        super().__init__(*args)
-        self.sparsify()
-
     def sparsify(self):
         self.sparse_lin_in = mlp_cpp_lib.to_csr(self.lin_in.weight)
         self.sparse_lin_out = mlp_cpp_lib.to_csr(self.lin_out.weight)
         self.sparse_layers = [mlp_cpp_lib.to_csr(self.layers[i].weight) for i in range(len(self.layers))]
         
 
-    def forward_next(self, x):
+    def forward(self, x):
         return mlp_cpp_lib.mlp_sparse_forward(
             x.squeeze(),
             self.sparse_lin_in,
@@ -92,40 +87,39 @@ class MLPcpp_sparse(MLPpy):
 
 
 if __name__ == "__main__":
-    input_size = 65536
-    model_layers = 3
-    hidden_layer_features = 512
+    input_size = 4096
+    model_layers = 5
+    hidden_layer_features = 128
     output_size = 32
     PRUNE = True
 
     X = torch.randn(1, input_size)  # fix batch size to one
 
-    print("initializing and pruning models...")
+    print("initializing models...")
     mlp_py = MLPpy(input_size, hidden_layer_features, output_size, model_layers)
     mlp_cpp_p = MLPcpp_primitives(input_size, hidden_layer_features, output_size, model_layers)
     mlp_cpp_f = MLPcpp_forward(input_size, hidden_layer_features, output_size, model_layers)
     mlp_cpp_s = MLPcpp_sparse(input_size, hidden_layer_features, output_size, model_layers)
 
+    print("pruning model...")
     if PRUNE:
         mlp_py.prune(0.99)
 
+    print("copying model weights and creating csr weights...")
     # set models to same underlying weights
     mlp_cpp_p.load_state_dict(mlp_py.state_dict())
     mlp_cpp_f.load_parameters(mlp_py.state_dict())
     mlp_cpp_s.load_state_dict(mlp_py.state_dict())
-    mlp_cpp_s.sparsify()  # need to re-sparsify with new weights
+    mlp_cpp_s.sparsify()  # need to sparsify with new weights
 
     # confirm the model parameters and computation are the same
     o1 = mlp_py(X)
     o2 = mlp_cpp_p(X)
     o3 = mlp_cpp_f(X)
     o4 = mlp_cpp_s(X)
-    print("Are output values of python and cpp primitives the same?",
-        not False in torch.eq(o1, o2))
-    print("Are output values of python and cpp full forward the same?",
-        not False in torch.eq(o1, o3))
-    print("Are output values of python and cpp sparse the same?",
-        not False in torch.eq(o1, o4))
+    print("Are output values of python and cpp primitives the same?", torch.allclose(o1, o2))
+    print("Are output values of python and cpp full forward the same?", torch.allclose(o1, o3))
+    print("Are output values of python and cpp sparse the same?", torch.allclose(o1, o4))
     
 
     forward_py = 0
@@ -162,7 +156,7 @@ if __name__ == "__main__":
         forward_cpp_s += time.time() - start
 
 
-    N = 1000
+    N = 100
     with torch.no_grad():
         for _ in range(N):
             py_compute()
