@@ -8,7 +8,7 @@ setup(name='cpp_extension',
             cpp_extension.CppExtension(
                 'mlp_cpp_lib',
                 ['mlp_lib.cpp'],
-                # extra_compile_args=['-fopenmp']
+                extra_compile_args=['-fopenmp']
             )
       ],
       cmdclass={'build_ext': cpp_extension.BuildExtension})

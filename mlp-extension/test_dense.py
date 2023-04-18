@@ -4,7 +4,7 @@ import torch
 
 from torch import nn
 import torch.nn.functional as F
-
+import torch.nn.utils.prune as prune
 from baseline_model import MLP as MLPpy, prune
 
 # Our module!
@@ -82,7 +82,7 @@ if __name__ == "__main__":
     model_layers = 32
     hidden_layer_features = 1024
     output_size = 32
-    PRUNE = False
+    PRUNE = True
 
     X = torch.randn(1, input_size)  # fix batch size to one
 
@@ -157,7 +157,7 @@ if __name__ == "__main__":
             py_compute()
             cpp_p_compute()
             cpp_f_compute()
-            # cpp_s_compute()
+            cpp_s_compute()
 
     print(f'Python   == Forward: {forward_py:.3f} s')
     print(f'C++ Prim == Forward: {forward_cpp_p:.3f} s')
