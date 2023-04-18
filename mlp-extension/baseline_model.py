@@ -36,7 +36,7 @@ class MLP(nn.Module):
         self.hidden_dim = hidden_dim
         self.lin_in = nn.Linear(input_size, hidden_dim, False)
         self.lin_out = nn.Linear(hidden_dim, output_size, False)
-        self.layers = [nn.Linear(hidden_dim, hidden_dim, False) for _ in range(n_hidden - 1)]
+        self.layers = nn.ModuleList([nn.Linear(hidden_dim, hidden_dim, False) for _ in range(n_hidden - 1)])
         self.num_hidden_layers = n_hidden - 1
 
     def reset_parameters(self):
@@ -49,8 +49,8 @@ class MLP(nn.Module):
         for layer in self.layers:
             x = self.relu(layer(x))
 
-        return self.lin_out(x)
-
+        return self.flatten(self.lin_out(x))
+    
     def prune(self, amt=0.9):
         return prune(self.parameters(), amt)
 
