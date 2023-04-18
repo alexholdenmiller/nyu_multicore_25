@@ -1,6 +1,7 @@
 #include <torch/extension.h>
 #include <iostream>
 #include <vector>
+#include <omp.h>
 
 // matrix multiply with a transpose
 at::Tensor mv(
@@ -100,6 +101,8 @@ torch::Tensor csr_sparse_mv(
 
 
 torch::Tensor to_csr_and_mv(const at::Tensor &matrix, const at::Tensor &x) {
+#pragma omp parallel
+    {
     const int64_t m = matrix.size(0);
     const int64_t n = matrix.size(1);
     const int64_t nnz = matrix.nonzero().size(0);
@@ -111,6 +114,7 @@ torch::Tensor to_csr_and_mv(const at::Tensor &matrix, const at::Tensor &x) {
 
     // iterate all the data in the matrix and store them into the arrays
     int64_t num_of_value = 0; // number of values before row i
+#pragma omp for
     for (int64_t i = 0; i < m; i++) {
         ROW_INDEX[i] = num_of_value;
         for (int64_t j = 0; j < n; j++) {
@@ -127,6 +131,7 @@ torch::Tensor to_csr_and_mv(const at::Tensor &matrix, const at::Tensor &x) {
     torch::Tensor result = torch::zeros(m, matrix.options());
 
     // sparse matrix multiply vector
+#pragma omp for
     for (int i = 0; i < m; i++) {
         double sum = 0;
         for (int j = ROW_INDEX[i]; j < ROW_INDEX[i+1]; j++) {
@@ -135,8 +140,8 @@ torch::Tensor to_csr_and_mv(const at::Tensor &matrix, const at::Tensor &x) {
         }
         result[i] = sum;
     }
-
     return result;
+}
 }
 
 
