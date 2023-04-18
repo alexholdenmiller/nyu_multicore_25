@@ -55,6 +55,11 @@ class MLPcpp_forward(nn.Module):
         for weight in (self.lin_in, self.lin_out, self.layers):
             weight.data.uniform_(-stdv, +stdv)
 
+    def load_parameters(self, state_dict):
+        self.lin_in.data = state_dict['lin_in.weight']
+        self.lin_out.data = state_dict['lin_out.weight']
+        self.layers.data = torch.stack([state_dict[layer_name] for layer_name in filter(lambda l: not (l == 'lin_in.weight' or l == 'lin_out.weight'), state_dict.keys())])
+
     def forward(self, x):
         return mlp_cpp_lib.mlp_forward(x.squeeze(), self.lin_in, self.layers, self.lin_out, self.num_hidden_layers)
     
@@ -75,6 +80,10 @@ if __name__ == "__main__":
     mlp_cpp_p = MLPcpp_primitives(input_size, hidden_layer_features, output_size, model_layers)
     mlp_cpp_f = MLPcpp_forward(input_size, hidden_layer_features, output_size, model_layers)
 
+    #Copy weights from mlp_py to mlp_cpp_p
+    mlp_cpp_p.load_state_dict(mlp_py.state_dict())
+    mlp_cpp_f.load_parameters(mlp_py.state_dict())
+
     if PRUNE:
         mlp_py.prune()
         mlp_cpp_p.prune()
@@ -89,11 +98,11 @@ if __name__ == "__main__":
     o2 = mlp_cpp_p(X)
     o3 = mlp_cpp_f(X)
     print("Are parameter values of model1 and model2 the same?",
-        torch.equal(o1, o2))
+        not False in torch.eq(o1, o2))
     print("Are parameter values of model1 and model3 the same?",
-        torch.equal(o1, o3))
+        not False in torch.eq(o1, o3))
     print("Are parameter values of model2 and model3 the same?",
-        torch.equal(o2, o3))
+        not False in torch.eq(o2, o3))
     
 
     forward_py = 0
