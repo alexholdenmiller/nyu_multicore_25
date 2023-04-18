@@ -16,6 +16,7 @@ def get_n_params(model):
         count += n
     return count
 
+
 def prune(parameters, amt):
     prune.global_unstructured(
         parameters,
@@ -49,8 +50,8 @@ class MLP(nn.Module):
             x = self.relu(layer(x))
 
         return self.lin_out(x)
-    
-    def prune(self, amt=0.3):
+
+    def prune(self, amt=0.9):
         return prune(self.parameters(), amt)
 
 
