@@ -101,47 +101,47 @@ torch::Tensor csr_sparse_mv(
 
 
 torch::Tensor to_csr_and_mv(const at::Tensor &matrix, const at::Tensor &x) {
-#pragma omp parallel
-    {
     const int64_t m = matrix.size(0);
     const int64_t n = matrix.size(1);
     const int64_t nnz = matrix.nonzero().size(0);
 
-    // initialize the three arrays
-    std::vector<double> V(nnz);
-    std::vector<int> COL_INDEX(nnz);
-    std::vector<int> ROW_INDEX(m+1);
-
-    // iterate all the data in the matrix and store them into the arrays
-    int64_t num_of_value = 0; // number of values before row i
-#pragma omp for
-    for (int64_t i = 0; i < m; i++) {
-        ROW_INDEX[i] = num_of_value;
-        for (int64_t j = 0; j < n; j++) {
-            const auto value = matrix[i][j].item<float >();
-            if (value != 0.0) {
-                V[num_of_value] = value;
-                COL_INDEX[num_of_value] = j;
-                num_of_value++;
-            }
-        }
-    }
-    ROW_INDEX[m] = nnz;
     // initialize arrays of result
     torch::Tensor result = torch::zeros(m, matrix.options());
+    #pragma omp parallel
+    {
+        // initialize the three arrays
+        std::vector<double> V(nnz);
+        std::vector<int> COL_INDEX(nnz);
+        std::vector<int> ROW_INDEX(m+1);
 
-    // sparse matrix multiply vector
-#pragma omp for
-    for (int i = 0; i < m; i++) {
-        double sum = 0;
-        for (int j = ROW_INDEX[i]; j < ROW_INDEX[i+1]; j++) {
-            int col = COL_INDEX[j];
-            sum += V[j] * x[col].item<float>();
+        // iterate all the data in the matrix and store them into the arrays
+        int64_t num_of_value = 0; // number of values before row i
+        #pragma omp for
+        for (int64_t i = 0; i < m; i++) {
+            ROW_INDEX[i] = num_of_value;
+            for (int64_t j = 0; j < n; j++) {
+                const auto value = matrix[i][j].item<float >();
+                if (value != 0.0) {
+                    V[num_of_value] = value;
+                    COL_INDEX[num_of_value] = j;
+                    num_of_value++;
+                }
+            }
         }
-        result[i] = sum;
+        ROW_INDEX[m] = nnz;
+
+        // sparse matrix multiply vector
+        #pragma omp for
+        for (int i = 0; i < m; i++) {
+            double sum = 0;
+            for (int j = ROW_INDEX[i]; j < ROW_INDEX[i+1]; j++) {
+                int col = COL_INDEX[j];
+                sum += V[j] * x[col].item<float>();
+            }
+            result[i] = sum;
+        }
     }
     return result;
-}
 }
 
 
