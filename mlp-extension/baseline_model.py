@@ -32,6 +32,7 @@ class MLP(nn.Module):
         if n_hidden < 1:
             raise RuntimeError("n_hidden must be at least one")
 
+        self.flatten = nn.Flatten()
         self.relu = nn.ReLU()
         self.hidden_dim = hidden_dim
         self.lin_in = nn.Linear(input_size, hidden_dim, False)
