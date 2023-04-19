@@ -76,21 +76,32 @@ class MLPcpp_sparse(MLPpy):
         self.sparse_layers = [mlp_cpp_lib.to_csr(self.layers[i].weight) for i in range(len(self.layers))]
         
 
-    def forward(self, x):
-        return mlp_cpp_lib.mlp_sparse_forward(
-            x.squeeze(),
-            self.sparse_lin_in,
-            self.sparse_layers,
-            self.sparse_lin_out,
-            self.num_hidden_layers
-        )
+    def forward(self, x, num_threads=1):
+        if num_threads == 1:
+            return mlp_cpp_lib.mlp_sparse_forward(
+                x.squeeze(),
+                self.sparse_lin_in,
+                self.sparse_layers,
+                self.sparse_lin_out,
+                self.num_hidden_layers
+            )
+        else:
+            return mlp_cpp_lib.mlp_sparse_forward_mt(
+                x.squeeze(),
+                self.sparse_lin_in,
+                self.sparse_layers,
+                self.sparse_lin_out,
+                self.num_hidden_layers,
+                num_threads,
+            )
 
 
 if __name__ == "__main__":
-    input_size = 2048
+    input_size = 1024
     model_layers = 3
-    hidden_layer_features = 256
-    output_size = 32
+    hidden_layer_features = 512
+    output_size = 128
+    NUM_THREADS = 8
     PRUNE = True
 
     X = torch.randn(1, input_size)  # fix batch size to one
@@ -103,7 +114,7 @@ if __name__ == "__main__":
 
     print("pruning model...")
     if PRUNE:
-        mlp_py.prune(0.99)
+        mlp_py.prune(0.999)
 
     print("copying model weights and creating csr weights...")
     # set models to same underlying weights
@@ -117,15 +128,18 @@ if __name__ == "__main__":
     o2 = mlp_cpp_p(X)
     o3 = mlp_cpp_f(X)
     o4 = mlp_cpp_s(X)
+    o5 = mlp_cpp_s(X, NUM_THREADS)
     print("Are output values of python and cpp primitives the same?", torch.allclose(o1, o2))
     print("Are output values of python and cpp full forward the same?", torch.allclose(o1, o3))
     print("Are output values of python and cpp sparse the same?", torch.allclose(o1, o4))
+    print("Are output values of python and cpp multithreaded the same?", torch.allclose(o1, o5))
     
 
     forward_py = 0
     forward_cpp_p = 0
     forward_cpp_f = 0
     forward_cpp_s = 0
+    forward_cpp_mt = 0
 
 
     def cpp_p_compute():
@@ -154,22 +168,31 @@ if __name__ == "__main__":
         start = time.time()
         _output = mlp_cpp_s(X)
         forward_cpp_s += time.time() - start
+    
+    def cpp_mt_compute():
+        global forward_cpp_mt
+        start = time.time()
+        _output = mlp_cpp_s(X, NUM_THREADS)
+        forward_cpp_mt += time.time() - start
 
 
-    N = 100
+    N = 20
     with torch.no_grad():
         for _ in range(N):
             py_compute()
             cpp_p_compute()
             cpp_f_compute()
             cpp_s_compute()
+            cpp_mt_compute()
 
     print(f'Python   == Forward: {forward_py:.3f} s')
     print(f'C++ Prim == Forward: {forward_cpp_p:.3f} s')
     print(f'C++ Forw == Forward: {forward_cpp_f:.3f} s')
     print(f'C++ CSR  == Forward: {forward_cpp_s:.3f} s')
+    print(f'C++ mult  == Forward: {forward_cpp_mt:.3f} s')
     print(f'C++ primitives version ran at {forward_py / forward_cpp_p:.3f}x speed vs python')
     print(f'C++ full forward version ran at {forward_py / forward_cpp_f:.3f}x speed vs python')
     print(f'C++ sparsified version ran at {forward_py / forward_cpp_s:.3f}x speed vs python')
     print(f'C++ full forward version ran at {forward_cpp_p / forward_cpp_f:.3f}x speed vs cpp primitives')
     print(f'C++ sparsified version ran at {forward_cpp_f / forward_cpp_s:.3f}x speed vs cpp full forward')
+    print(f'C++ multithreaded version ran at {forward_cpp_s / forward_cpp_mt:.3f}x speed vs cpp sparsified')

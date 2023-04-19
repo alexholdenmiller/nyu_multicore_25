@@ -77,18 +77,49 @@ std::tuple <at::Tensor, at::Tensor, at::Tensor> to_csr(const at::Tensor &matrix)
  */
 torch::Tensor csr_sparse_mv(
         const std::tuple <at::Tensor, at::Tensor, at::Tensor> csr_matrix,
-        const at::Tensor &x) {
-
-    // Get the three arrays of matrix A
+        const at::Tensor &x
+) {
     const auto A_V = std::get<0>(csr_matrix);
     const auto A_COL_INDEX = std::get<1>(csr_matrix);
     const auto A_ROW_INDEX = std::get<2>(csr_matrix);
     const int64_t m = A_ROW_INDEX.size(0) - 1;
 
     // initialize arrays of result
-    torch::Tensor result = torch::zeros(m, A_V.options());
+    torch::Tensor result = torch::zeros(m, x.options());
 
     // sparse matrix multiply vector
+    // THIS IS THE SINGLE-THREADED ONE: NO OMP
+    for (int i = 0; i < m; i++) {
+        for (int j = A_ROW_INDEX[i].item<int>(); j < A_ROW_INDEX[i+1].item<int>(); j++) {
+            result[i] += A_V[j] * x[A_COL_INDEX[j]];
+        }
+    }
+
+    return result;
+}
+
+/**
+ * uses omp to do multithreaded processing
+ * @brief multiple a csr_matrix with a vector
+ * @param csr_matrix csr format matrix
+ * @param x tensor
+ * @return a resulting tensor
+ */
+torch::Tensor csr_sparse_mv_mt(
+        const std::tuple <at::Tensor, at::Tensor, at::Tensor> csr_matrix,
+        const at::Tensor &x,
+        int8_t num_threads
+) {
+    const auto A_V = std::get<0>(csr_matrix);
+    const auto A_COL_INDEX = std::get<1>(csr_matrix);
+    const auto A_ROW_INDEX = std::get<2>(csr_matrix);
+    const int64_t m = A_ROW_INDEX.size(0) - 1;
+
+    // initialize arrays of result
+    torch::Tensor result = torch::zeros(m, x.options());
+
+    // sparse matrix multiply vector
+    # pragma omp parallel for num_threads(num_threads)
     for (int i = 0; i < m; i++) {
         for (int j = A_ROW_INDEX[i].item<int>(); j < A_ROW_INDEX[i+1].item<int>(); j++) {
             result[i] += A_V[j] * x[A_COL_INDEX[j]];
@@ -113,13 +144,37 @@ at::Tensor mlp_sparse_forward(
         std::tuple <at::Tensor, at::Tensor, at::Tensor> in_weights,
         std::vector<std::tuple <at::Tensor, at::Tensor, at::Tensor>> hidden_weights,
         std::tuple <at::Tensor, at::Tensor, at::Tensor> output_weights,
-        int64_t num_layers
+        int16_t num_layers
 ) {
     torch::Tensor state = torch::relu(csr_sparse_mv(in_weights, input));
     for (int i = 0; i < num_layers; i++) {
         state = torch::relu(csr_sparse_mv(hidden_weights[i], state));
     }
     return csr_sparse_mv(output_weights, state);
+}
+
+/**
+ * mlp with tensor in sparse matrix format
+ * @param input
+ * @param in_weights
+ * @param hidden_weights
+ * @param output_weights
+ * @param num_layers
+ * @return
+ */
+at::Tensor mlp_sparse_forward_mt(
+        torch::Tensor input,
+        std::tuple <at::Tensor, at::Tensor, at::Tensor> in_weights,
+        std::vector<std::tuple <at::Tensor, at::Tensor, at::Tensor>> hidden_weights,
+        std::tuple <at::Tensor, at::Tensor, at::Tensor> output_weights,
+        int16_t num_layers,
+        int8_t num_threads
+) {
+    torch::Tensor state = torch::relu(csr_sparse_mv_mt(in_weights, input, num_threads));
+    for (int i = 0; i < num_layers; i++) {
+        state = torch::relu(csr_sparse_mv_mt(hidden_weights[i], state, num_threads));
+    }
+    return csr_sparse_mv_mt(output_weights, state, num_threads);
 }
 
 
@@ -129,6 +184,6 @@ m.def("mm_t", &mv, "matrix-vector multiply with transpose");
 m.def("mm_t_relu", &mv_relu, "matrix-vector multiply with transpose and relu");
 m.def("mlp_forward", &mlp_forward, "mlp forward");
 m.def("to_csr", &to_csr, "convert tensor to csv format");
-m.def("csr_sparse_mv", &csr_sparse_mv, "matrix-vector multiply by csr format");
 m.def("mlp_sparse_forward", &mlp_sparse_forward, "mlp forward with csr format");
+m.def("mlp_sparse_forward_mt", &mlp_sparse_forward_mt, "mlp forward with csr format and multithreading");
 }
