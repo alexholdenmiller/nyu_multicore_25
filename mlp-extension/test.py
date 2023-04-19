@@ -10,6 +10,8 @@ from baseline_model import MLP as MLPpy, prune
 # Our module!
 import mlp_cpp_lib
 
+device = 'cpu'
+
 
 class MLPcpp_primitives(MLPpy):
     """
@@ -97,14 +99,14 @@ class MLPcpp_sparse(MLPpy):
 
 
 if __name__ == "__main__":
-    input_size = 1024
-    model_layers = 3
-    hidden_layer_features = 512
+    input_size = 8192
+    model_layers = 10
+    hidden_layer_features = 1024
     output_size = 128
-    NUM_THREADS = 8
+    NUM_THREADS = 32
     PRUNE = True
 
-    X = torch.randn(1, input_size)  # fix batch size to one
+    X = torch.randn(1, input_size, device=device)  # fix batch size to one
 
     print("initializing models...")
     mlp_py = MLPpy(input_size, hidden_layer_features, output_size, model_layers)
@@ -114,7 +116,7 @@ if __name__ == "__main__":
 
     print("pruning model...")
     if PRUNE:
-        mlp_py.prune(0.999)
+        mlp_py.prune(0.9)
 
     print("copying model weights and creating csr weights...")
     # set models to same underlying weights

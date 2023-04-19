@@ -119,14 +119,20 @@ torch::Tensor csr_sparse_mv_mt(
     // initialize arrays of result
     torch::Tensor result = torch::zeros(m, x.options());
 
+    const int64_t step = ((m + num_threads - 2) / num_threads) + 1;
+
     // sparse matrix multiply vector
-    # pragma omp parallel for num_threads(num_threads)
-    for (int i = 0; i < m; i++) {
-        for (int j = A_ROW_INDEX[i].item<int>(); j < A_ROW_INDEX[i+1].item<int>(); j++) {
-            result[i] += A_V[j] * x[A_COL_INDEX[j]];
+    # pragma omp parallel num_threads(num_threads)
+    {
+        int16_t rank = omp_get_thread_num();
+        for (int i = rank*step; i < std::min((rank+1) * step, m); i++) {
+            for (int j = A_ROW_INDEX[i].item<int>(); j < A_ROW_INDEX[i+1].item<int>(); j++) {
+                result[i] += A_V[j] * x[A_COL_INDEX[j]];
+            }
         }
     }
 
+    
     return result;
 }
 
