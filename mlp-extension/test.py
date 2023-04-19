@@ -72,38 +72,66 @@ class MLPcpp_sparse(MLPpy):
     """
     uses sparse CSR format instead of dense computations
     """
-    def sparsify(self):
-        self.sparse_lin_in = mlp_cpp_lib.to_csr(self.lin_in.weight)
-        self.sparse_lin_out = mlp_cpp_lib.to_csr(self.lin_out.weight)
-        self.sparse_layers = [mlp_cpp_lib.to_csr(self.layers[i].weight) for i in range(len(self.layers))]
+    def __init__(self, input_size, hidden_dim, output_size, n_hidden, sparse_alg = 'csr'):
+        super().__init__(input_size, hidden_dim, output_size, n_hidden)
+        self.sparse_alg = sparse_alg
         
 
+    def sparsify(self):
+        if self.sparse_alg == 'csr':
+            self.sparse_lin_in = mlp_cpp_lib.to_csr(self.lin_in.weight)
+            self.sparse_lin_out = mlp_cpp_lib.to_csr(self.lin_out.weight)
+            self.sparse_layers = [mlp_cpp_lib.to_csr(self.layers[i].weight) for i in range(len(self.layers))]
+        elif self.sparse_alg == 'coo':
+            self.sparse_lin_in = mlp_cpp_lib.to_coo(self.lin_in.weight)
+            self.sparse_lin_out = mlp_cpp_lib.to_coo(self.lin_out.weight)
+            self.sparse_layers = [mlp_cpp_lib.to_coo(self.layers[i].weight) for i in range(len(self.layers))]
+
     def forward(self, x, num_threads=1):
-        if num_threads == 1:
-            return mlp_cpp_lib.mlp_sparse_forward(
-                x.squeeze(),
-                self.sparse_lin_in,
-                self.sparse_layers,
-                self.sparse_lin_out,
-                self.num_hidden_layers
-            )
-        else:
-            return mlp_cpp_lib.mlp_sparse_forward_mt(
-                x.squeeze(),
-                self.sparse_lin_in,
-                self.sparse_layers,
-                self.sparse_lin_out,
-                self.num_hidden_layers,
-                num_threads,
-            )
+        if self.sparse_alg == 'csr':
+            if num_threads == 1:
+                return mlp_cpp_lib.mlp_sparse_forward_csr(
+                    x.squeeze(),
+                    self.sparse_lin_in,
+                    self.sparse_layers,
+                    self.sparse_lin_out,
+                    self.num_hidden_layers
+                )
+            else:
+                return mlp_cpp_lib.mlp_sparse_forward_mt_csr(
+                    x.squeeze(),
+                    self.sparse_lin_in,
+                    self.sparse_layers,
+                    self.sparse_lin_out,
+                    self.num_hidden_layers,
+                    num_threads,
+                )
+        elif self.sparse_alg == 'coo':
+            if num_threads == 1:
+                return mlp_cpp_lib.mlp_sparse_forward_coo(
+                    x.squeeze(),
+                    self.sparse_lin_in,
+                    self.sparse_layers,
+                    self.sparse_lin_out,
+                    self.num_hidden_layers
+                )
+            else:
+                return mlp_cpp_lib.mlp_sparse_forward_mt_coo(
+                    x.squeeze(),
+                    self.sparse_lin_in,
+                    self.sparse_layers,
+                    self.sparse_lin_out,
+                    self.num_hidden_layers,
+                    num_threads,
+                )
 
 
 if __name__ == "__main__":
     input_size = 2048
-    model_layers = 5
+    model_layers = 4
     hidden_layer_features = 512
-    output_size = 8
-    NUM_THREADS = 16
+    output_size = 128
+    NUM_THREADS = 64
     PRUNE = True
 
     X = torch.randn(1, input_size, device=device)  # fix batch size to one
@@ -112,7 +140,8 @@ if __name__ == "__main__":
     mlp_py = MLPpy(input_size, hidden_layer_features, output_size, model_layers)
     mlp_cpp_p = MLPcpp_primitives(input_size, hidden_layer_features, output_size, model_layers)
     mlp_cpp_f = MLPcpp_forward(input_size, hidden_layer_features, output_size, model_layers)
-    mlp_cpp_s = MLPcpp_sparse(input_size, hidden_layer_features, output_size, model_layers)
+    mlp_cpp_s_csr = MLPcpp_sparse(input_size, hidden_layer_features, output_size, model_layers)
+    mlp_cpp_s_coo = MLPcpp_sparse(input_size, hidden_layer_features, output_size, model_layers, 'coo')
 
     print("pruning model...")
     if PRUNE:
@@ -126,8 +155,10 @@ if __name__ == "__main__":
     # set models to same underlying weights
     mlp_cpp_p.load_state_dict(mlp_py.state_dict())
     mlp_cpp_f.load_parameters(mlp_py.state_dict())
-    mlp_cpp_s.load_state_dict(mlp_py.state_dict())
-    mlp_cpp_s.sparsify()  # need to sparsify with new weights
+    mlp_cpp_s_csr.load_state_dict(mlp_py.state_dict())
+    mlp_cpp_s_csr.sparsify()  # need to sparsify with new weights
+    mlp_cpp_s_coo.load_state_dict(mlp_py.state_dict())
+    mlp_cpp_s_coo.sparsify()
 
     # confirm the model parameters and computation are the same
     print()
@@ -135,12 +166,16 @@ if __name__ == "__main__":
     o1 = mlp_py(X)
     o2 = mlp_cpp_p(X)
     o3 = mlp_cpp_f(X)
-    o4 = mlp_cpp_s(X)
-    o5 = mlp_cpp_s(X, NUM_THREADS)
-    print("  ...is cpp primitives the same?", torch.allclose(o1, o2))
-    print("  ...is cpp full forward the same?", torch.allclose(o1, o3))
-    print("  ...is csr sparse the same?", torch.allclose(o1, o4))
-    print("  ...is csr multithreaded the same?", torch.allclose(o1, o5))
+    o4 = mlp_cpp_s_csr(X)
+    o5 = mlp_cpp_s_csr(X, NUM_THREADS)
+    o6 = mlp_cpp_s_coo(X)
+    o7 = mlp_cpp_s_coo(X, NUM_THREADS)
+    print("Are output values of python and cpp primitives the same?", torch.allclose(o1, o2))
+    print("Are output values of python and cpp full forward the same?", torch.allclose(o1, o3))
+    print("Are output values of python and cpp sparse csr the same?", torch.allclose(o1, o4))
+    print("Are output values of python and cpp multithreaded csr the same?", torch.allclose(o1, o5))
+    print("Are output values of python and cpp sparse coo the same?", torch.allclose(o1, o6))
+    print("Are output values of python and cpp multithreaded coo the same?", torch.allclose(o1, o7))
     
 
     forward_py = 0
@@ -148,6 +183,8 @@ if __name__ == "__main__":
     forward_cpp_f = 0
     forward_cpp_s = 0
     forward_cpp_mt = 0
+    forward_cpp_s_coo = 0
+    forward_cpp_mt_coo = 0
 
 
     def cpp_p_compute():
@@ -174,14 +211,27 @@ if __name__ == "__main__":
     def cpp_s_compute():
         global forward_cpp_s
         start = time.time()
-        _output = mlp_cpp_s(X)
+        _output = mlp_cpp_s_csr(X)
         forward_cpp_s += time.time() - start
     
     def cpp_mt_compute():
         global forward_cpp_mt
         start = time.time()
-        _output = mlp_cpp_s(X, NUM_THREADS)
+        _output = mlp_cpp_s_csr(X, NUM_THREADS)
         forward_cpp_mt += time.time() - start
+
+    def cpp_s_coo_compute():
+        global forward_cpp_s_coo
+        start = time.time()
+        _output = mlp_cpp_s_coo(X)
+        forward_cpp_s_coo += time.time() - start
+    
+    def cpp_mt_coo_compute():
+        global forward_cpp_mt_coo
+        start = time.time()
+        _output = mlp_cpp_s_coo(X, NUM_THREADS)
+        forward_cpp_mt_coo += time.time() - start
+
 
     print()
     print("Running model simulations...")
@@ -193,19 +243,25 @@ if __name__ == "__main__":
             cpp_f_compute()
             cpp_s_compute()
             cpp_mt_compute()
+            cpp_s_coo_compute()
+            cpp_mt_coo_compute()
 
-    print(f'  ... Python   == Forward: {forward_py:.3f} s')
-    print(f'  ... C++ Prim == Forward: {forward_cpp_p:.3f} s')
-    print(f'  ... C++ Forw == Forward: {forward_cpp_f:.3f} s')
-    print(f'  ... C++ CSR  == Forward: {forward_cpp_s:.3f} s')
-    print(f'  ... C++ mult  == Forward: {forward_cpp_mt:.3f} s')
+
+    print(f'Python   == Forward: {forward_py:.3f} s')
+    print(f'C++ Prim == Forward: {forward_cpp_p:.3f} s')
+    print(f'C++ Forw == Forward: {forward_cpp_f:.3f} s')
+    print(f'C++ CSR  == Forward: {forward_cpp_s:.3f} s')
+    print(f'C++ CSR mult  == Forward: {forward_cpp_mt:.3f} s')
+    print(f'C++ COO  == Forward: {forward_cpp_s_coo:.3f} s')
+    print(f'C++ COO mult  == Forward: {forward_cpp_mt_coo:.3f} s')
 
     print()
     print('Speedup comparisons for quicker reading...')
-    print(f'  ... C++ primitives version ran at {forward_py / forward_cpp_p:.3f}x speed vs python dense')
-    print(f'  ... C++ full forward version ran at {forward_py / forward_cpp_f:.3f}x speed vs python dense')
-    print(f'  ... C++ sparsified version ran at {forward_py / forward_cpp_s:.3f}x speed vs python dense')
-    print(f'  ... C++ full forward version ran at {forward_cpp_p / forward_cpp_f:.3f}x speed vs cpp primitives')
-    print(f'  ... C++ sparsified version ran at {forward_cpp_f / forward_cpp_s:.3f}x speed vs cpp full forward')
-    print(f'  ... C++ multithreaded version ran at {forward_cpp_s / forward_cpp_mt:.3f}x speed vs cpp sparsified')
-    print(f'  ... C++ multithreaded version ran at {forward_py / forward_cpp_mt:.3f}x speed vs python dense')
+    print(f'C++ primitives version ran at {forward_py / forward_cpp_p:.3f}x speed vs python')
+    print(f'C++ full forward version ran at {forward_py / forward_cpp_f:.3f}x speed vs python')
+    print(f'C++ sparsified version ran at {forward_py / forward_cpp_s:.3f}x speed vs python')
+    print(f'C++ full forward version ran at {forward_cpp_p / forward_cpp_f:.3f}x speed vs cpp primitives')
+    print(f'C++ sparsified csr version ran at {forward_cpp_f / forward_cpp_s:.3f}x speed vs cpp full forward')
+    print(f'C++ multithreaded csr version ran at {forward_cpp_s / forward_cpp_mt:.3f}x speed vs cpp sparsified')
+    print(f'C++ sparsified coo version ran at {forward_cpp_f / forward_cpp_s_coo:.3f}x speed vs cpp full forward')
+    print(f'C++ multithreaded coo version ran at {forward_cpp_s / forward_cpp_mt_coo:.3f}x speed vs cpp sparsified')
