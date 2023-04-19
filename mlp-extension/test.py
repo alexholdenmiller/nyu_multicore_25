@@ -127,11 +127,11 @@ class MLPcpp_sparse(MLPpy):
 
 
 if __name__ == "__main__":
-    input_size = 2048
+    input_size = 1024
     model_layers = 4
     hidden_layer_features = 512
     output_size = 128
-    NUM_THREADS = 64
+    NUM_THREADS = 16
     PRUNE = True
 
     X = torch.randn(1, input_size, device=device)  # fix batch size to one
@@ -170,12 +170,12 @@ if __name__ == "__main__":
     o5 = mlp_cpp_s_csr(X, NUM_THREADS)
     o6 = mlp_cpp_s_coo(X)
     o7 = mlp_cpp_s_coo(X, NUM_THREADS)
-    print("Are output values of python and cpp primitives the same?", torch.allclose(o1, o2))
-    print("Are output values of python and cpp full forward the same?", torch.allclose(o1, o3))
-    print("Are output values of python and cpp sparse csr the same?", torch.allclose(o1, o4))
-    print("Are output values of python and cpp multithreaded csr the same?", torch.allclose(o1, o5))
-    print("Are output values of python and cpp sparse coo the same?", torch.allclose(o1, o6))
-    print("Are output values of python and cpp multithreaded coo the same?", torch.allclose(o1, o7))
+    print("  ...is cpp primitives the same?", torch.allclose(o1, o2))
+    print("  ...is cpp full forward the same?", torch.allclose(o1, o3))
+    print("  ...is cpp sparse csr the same?", torch.allclose(o1, o4))
+    print("  ...is cpp multithreaded csr the same?", torch.allclose(o1, o5))
+    print("  ...is cpp sparse coo the same?", torch.allclose(o1, o6))
+    print("  ...is cpp multithreaded coo the same?", torch.allclose(o1, o7))
     
 
     forward_py = 0
@@ -247,21 +247,21 @@ if __name__ == "__main__":
             cpp_mt_coo_compute()
 
 
-    print(f'Python   == Forward: {forward_py:.3f} s')
-    print(f'C++ Prim == Forward: {forward_cpp_p:.3f} s')
-    print(f'C++ Forw == Forward: {forward_cpp_f:.3f} s')
-    print(f'C++ CSR  == Forward: {forward_cpp_s:.3f} s')
-    print(f'C++ CSR mult  == Forward: {forward_cpp_mt:.3f} s')
-    print(f'C++ COO  == Forward: {forward_cpp_s_coo:.3f} s')
-    print(f'C++ COO mult  == Forward: {forward_cpp_mt_coo:.3f} s')
+    print(f'  ... Python   == Forward: {forward_py:.3f} s')
+    print(f'  ... C++ Prim == Forward: {forward_cpp_p:.3f} s')
+    print(f'  ... C++ Forw == Forward: {forward_cpp_f:.3f} s')
+    print(f'  ... C++ CSR  == Forward: {forward_cpp_s:.3f} s')
+    print(f'  ... C++ CSR mult  == Forward: {forward_cpp_mt:.3f} s')
+    print(f'  ... C++ COO  == Forward: {forward_cpp_s_coo:.3f} s')
+    print(f'  ... C++ COO mult  == Forward: {forward_cpp_mt_coo:.3f} s')
 
     print()
     print('Speedup comparisons for quicker reading...')
-    print(f'C++ primitives version ran at {forward_py / forward_cpp_p:.3f}x speed vs python')
-    print(f'C++ full forward version ran at {forward_py / forward_cpp_f:.3f}x speed vs python')
-    print(f'C++ sparsified version ran at {forward_py / forward_cpp_s:.3f}x speed vs python')
-    print(f'C++ full forward version ran at {forward_cpp_p / forward_cpp_f:.3f}x speed vs cpp primitives')
-    print(f'C++ sparsified csr version ran at {forward_cpp_f / forward_cpp_s:.3f}x speed vs cpp full forward')
-    print(f'C++ multithreaded csr version ran at {forward_cpp_s / forward_cpp_mt:.3f}x speed vs cpp sparsified')
-    print(f'C++ sparsified coo version ran at {forward_cpp_f / forward_cpp_s_coo:.3f}x speed vs cpp full forward')
-    print(f'C++ multithreaded coo version ran at {forward_cpp_s / forward_cpp_mt_coo:.3f}x speed vs cpp sparsified')
+    print(f'  ... C++ primitives version ran at {forward_py / forward_cpp_p:.3f}x speed vs python')
+    print(f'  ... C++ full forward version ran at {forward_py / forward_cpp_f:.3f}x speed vs python')
+    print(f'  ... C++ sparsified version ran at {forward_py / forward_cpp_s:.3f}x speed vs python')
+    print(f'  ... C++ full forward version ran at {forward_cpp_p / forward_cpp_f:.3f}x speed vs cpp primitives')
+    print(f'  ... C++ sparsified csr version ran at {forward_cpp_f / forward_cpp_s:.3f}x speed vs cpp full forward')
+    print(f'  ... C++ multithreaded csr version ran at {forward_cpp_s / forward_cpp_mt:.3f}x speed vs cpp sparsified')
+    print(f'  ... C++ sparsified coo version ran at {forward_cpp_f / forward_cpp_s_coo:.3f}x speed vs cpp full forward')
+    print(f'  ... C++ multithreaded coo version ran at {forward_cpp_s / forward_cpp_mt_coo:.3f}x speed vs cpp sparsified')
