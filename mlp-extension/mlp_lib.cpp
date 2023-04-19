@@ -85,7 +85,8 @@ torch::Tensor csr_sparse_mv(
     const int64_t m = A_ROW_INDEX.size(0) - 1;
 
     // initialize arrays of result
-    torch::Tensor result = torch::zeros(m, x.options());
+    auto opt = torch::TensorOptions().dtype(torch::kFloat32).requires_grad(false);
+    torch::Tensor result = torch::zeros(m, opt);
 
     // sparse matrix multiply vector
     // THIS IS THE SINGLE-THREADED ONE: NO OMP
