@@ -99,11 +99,11 @@ class MLPcpp_sparse(MLPpy):
 
 
 if __name__ == "__main__":
-    input_size = 8192
-    model_layers = 10
-    hidden_layer_features = 1024
-    output_size = 128
-    NUM_THREADS = 32
+    input_size = 2048
+    model_layers = 5
+    hidden_layer_features = 512
+    output_size = 8
+    NUM_THREADS = 16
     PRUNE = True
 
     X = torch.randn(1, input_size, device=device)  # fix batch size to one
@@ -116,7 +116,11 @@ if __name__ == "__main__":
 
     print("pruning model...")
     if PRUNE:
-        mlp_py.prune(0.9)
+        # https://arxiv.org/abs/1803.03635
+        # some models can maintain over 90% accuracy with 99.5% pruning
+        # the bigger the model, mostly likely the more true this is
+        PAPER_MAX_PRUNE_RATE = 0.995
+        mlp_py.prune(PAPER_MAX_PRUNE_RATE)
 
     print("copying model weights and creating csr weights...")
     # set models to same underlying weights
@@ -126,15 +130,17 @@ if __name__ == "__main__":
     mlp_cpp_s.sparsify()  # need to sparsify with new weights
 
     # confirm the model parameters and computation are the same
+    print()
+    print("Confirming all models output the same values...")
     o1 = mlp_py(X)
     o2 = mlp_cpp_p(X)
     o3 = mlp_cpp_f(X)
     o4 = mlp_cpp_s(X)
     o5 = mlp_cpp_s(X, NUM_THREADS)
-    print("Are output values of python and cpp primitives the same?", torch.allclose(o1, o2))
-    print("Are output values of python and cpp full forward the same?", torch.allclose(o1, o3))
-    print("Are output values of python and cpp sparse the same?", torch.allclose(o1, o4))
-    print("Are output values of python and cpp multithreaded the same?", torch.allclose(o1, o5))
+    print("  ...is cpp primitives the same?", torch.allclose(o1, o2))
+    print("  ...is cpp full forward the same?", torch.allclose(o1, o3))
+    print("  ...is csr sparse the same?", torch.allclose(o1, o4))
+    print("  ...is csr multithreaded the same?", torch.allclose(o1, o5))
     
 
     forward_py = 0
@@ -177,7 +183,8 @@ if __name__ == "__main__":
         _output = mlp_cpp_s(X, NUM_THREADS)
         forward_cpp_mt += time.time() - start
 
-
+    print()
+    print("Running model simulations...")
     N = 20
     with torch.no_grad():
         for _ in range(N):
@@ -187,14 +194,18 @@ if __name__ == "__main__":
             cpp_s_compute()
             cpp_mt_compute()
 
-    print(f'Python   == Forward: {forward_py:.3f} s')
-    print(f'C++ Prim == Forward: {forward_cpp_p:.3f} s')
-    print(f'C++ Forw == Forward: {forward_cpp_f:.3f} s')
-    print(f'C++ CSR  == Forward: {forward_cpp_s:.3f} s')
-    print(f'C++ mult  == Forward: {forward_cpp_mt:.3f} s')
-    print(f'C++ primitives version ran at {forward_py / forward_cpp_p:.3f}x speed vs python')
-    print(f'C++ full forward version ran at {forward_py / forward_cpp_f:.3f}x speed vs python')
-    print(f'C++ sparsified version ran at {forward_py / forward_cpp_s:.3f}x speed vs python')
-    print(f'C++ full forward version ran at {forward_cpp_p / forward_cpp_f:.3f}x speed vs cpp primitives')
-    print(f'C++ sparsified version ran at {forward_cpp_f / forward_cpp_s:.3f}x speed vs cpp full forward')
-    print(f'C++ multithreaded version ran at {forward_cpp_s / forward_cpp_mt:.3f}x speed vs cpp sparsified')
+    print(f'  ... Python   == Forward: {forward_py:.3f} s')
+    print(f'  ... C++ Prim == Forward: {forward_cpp_p:.3f} s')
+    print(f'  ... C++ Forw == Forward: {forward_cpp_f:.3f} s')
+    print(f'  ... C++ CSR  == Forward: {forward_cpp_s:.3f} s')
+    print(f'  ... C++ mult  == Forward: {forward_cpp_mt:.3f} s')
+
+    print()
+    print('Speedup comparisons for quicker reading...')
+    print(f'  ... C++ primitives version ran at {forward_py / forward_cpp_p:.3f}x speed vs python dense')
+    print(f'  ... C++ full forward version ran at {forward_py / forward_cpp_f:.3f}x speed vs python dense')
+    print(f'  ... C++ sparsified version ran at {forward_py / forward_cpp_s:.3f}x speed vs python dense')
+    print(f'  ... C++ full forward version ran at {forward_cpp_p / forward_cpp_f:.3f}x speed vs cpp primitives')
+    print(f'  ... C++ sparsified version ran at {forward_cpp_f / forward_cpp_s:.3f}x speed vs cpp full forward')
+    print(f'  ... C++ multithreaded version ran at {forward_cpp_s / forward_cpp_mt:.3f}x speed vs cpp sparsified')
+    print(f'  ... C++ multithreaded version ran at {forward_py / forward_cpp_mt:.3f}x speed vs python dense')
