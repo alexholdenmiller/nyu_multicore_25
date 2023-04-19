@@ -152,38 +152,6 @@ torch::Tensor coo_sparse_mv(
     const auto m = std::get<3>(coo_matrix);
 
     // initialize arrays of result
-    torch::Tensor result = torch::zeros(m, A_V.options());
-
-    // sparse matrix multiply vector
-    for (int i = 0; i < m; i++) {
-        float sum = 0;
-        for (int j = A_ROW_INDEX[i].item<int>(); j < A_ROW_INDEX[i+1].item<int>(); j++) {
-            sum += A_V[j].item<float>() * x[A_COL_INDEX[j].item<int>()].item<float>();
-        }
-        result[i] = sum;
-    }
-
-    return result;
-}
-
-
-/**
- * @brief multiple a coo_matrix with a vector
- * @param coo_matrix coo format matrix
- * @param x tensor
- * @return a resulting tensor
- */
-torch::Tensor coo_sparse_mv(
-        const std::tuple <std::vector<float_t>, std::vector<int32_t>, std::vector<int32_t>, int64_t> coo_matrix,
-        const at::Tensor &x
-) {
-    const auto A_V = std::get<0>(coo_matrix);
-    const auto A_COL_INDEX = std::get<1>(coo_matrix);
-    const auto A_ROW_INDEX = std::get<2>(coo_matrix);
-    const auto nnz = A_V.size();
-    const auto m = std::get<3>(coo_matrix);
-
-    // initialize arrays of result
     auto opt = torch::TensorOptions().dtype(torch::kFloat32).requires_grad(false);
     torch::Tensor result = torch::zeros(m, opt);
 
