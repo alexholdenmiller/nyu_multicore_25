@@ -131,7 +131,7 @@ if __name__ == "__main__":
     model_layers = 4
     hidden_layer_features = 512
     output_size = 128
-    NUM_THREADS = 16
+    NUM_THREADS = 8
     PRUNE = True
 
     X = torch.randn(1, input_size, device=device)  # fix batch size to one
@@ -235,7 +235,7 @@ if __name__ == "__main__":
 
     print()
     print("Running model simulations...")
-    N = 20
+    N = 50
     with torch.no_grad():
         for _ in range(N):
             py_compute()
