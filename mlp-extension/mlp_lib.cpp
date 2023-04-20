@@ -180,8 +180,7 @@ torch::Tensor csr_sparse_mv_mt(
     const int64_t m = A_ROW_INDEX.size(0) - 1;  // same as x.size(0)
 
     // initialize arrays of result
-    auto opt = torch::TensorOptions().dtype(torch::kFloat32).requires_grad(false);
-    torch::Tensor result = torch::zeros(m, opt);
+    const torch::Tensor result = torch::zeros(m, torch::TensorOptions().dtype(torch::kFloat32).requires_grad(false));
 
     const int64_t step = ((m + n_threads - 2) / n_threads) + 1;
 
@@ -303,8 +302,7 @@ at::Tensor mlp_sparse_forward_mt_csr(
         int16_t num_layers,
         int16_t num_threads
 ) {
-    torch::Tensor state = input.clone();
-    state = torch::relu(csr_sparse_mv_mt(in_weights, state, num_threads));
+    state = torch::relu(csr_sparse_mv_mt(in_weights, input, num_threads));
     for (int i = 0; i < num_layers; i++) {
         state = torch::relu(csr_sparse_mv_mt(hidden_weights[i], state, num_threads));
     }
