@@ -189,11 +189,11 @@ torch::Tensor csr_sparse_mv_mt(
     # pragma omp parallel num_threads(num_threads) shared(result)
     {
         int16_t rank = omp_get_thread_num();
-        for (int i = rank*step; i < std::min((rank+1) * step, m); i++) {
-            for (int j = A_ROW_INDEX[i].item<int>(); j < A_ROW_INDEX[i+1].item<int>(); j++) {
-                result[i] += A_V[j] * x[A_COL_INDEX[j]];
-            }
-        }
+        // for (int i = rank*step; i < std::min((rank+1) * step, m); i++) {
+        //     for (int j = A_ROW_INDEX[i].item<int>(); j < A_ROW_INDEX[i+1].item<int>(); j++) {
+        //         result[i] += A_V[j] * x[A_COL_INDEX[j]];
+        //     }
+        // }
     }
 
     
