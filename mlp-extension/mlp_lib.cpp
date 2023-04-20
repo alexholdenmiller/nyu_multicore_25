@@ -93,7 +93,7 @@ std::tuple <std::vector<float_t>, std::vector<int32_t>, std::vector<int32_t>, in
             if (value.item<float>() != 0.0) {
                 ROW_INDEX.push_back(i);
                 COL_INDEX.push_back(j);
-                V.push_back(value.item<float>());
+                V.push_back(value.item<float_t>());
             }
         }
     }
@@ -159,8 +159,9 @@ torch::Tensor coo_sparse_mv(
     for (int ind = 0; ind < nnz; ind++) {
         int32_t i = A_ROW_INDEX[ind];
         int32_t j = A_COL_INDEX[ind];
-        int32_t v = A_V[ind];
+        float_t v = A_V[ind];
         result[i] += v * x[j];
+        //printf("%d %d %d\n", i, j, v);
     }
 
     return result;
@@ -235,7 +236,7 @@ torch::Tensor coo_sparse_mv_mt(
         for (int ind = rank*step; ind < std::min((rank+1) * step, nnz); ind++) {
             int32_t i = A_ROW_INDEX[ind];
             int32_t j = A_COL_INDEX[ind];
-            int32_t v = A_V[ind];
+            float_t v = A_V[ind];
             result[i] += v * x[j];
         }
     }
