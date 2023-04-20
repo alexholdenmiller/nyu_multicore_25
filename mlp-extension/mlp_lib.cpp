@@ -172,7 +172,7 @@ torch::Tensor coo_sparse_mv(
 torch::Tensor csr_sparse_mv_mt(
         const std::tuple <at::Tensor, at::Tensor, at::Tensor> csr_matrix,
         const at::Tensor &x,
-        int16t n_threads
+        int16_t n_threads
 ) {
     const auto A_V = std::get<0>(csr_matrix);
     const auto A_COL_INDEX = std::get<1>(csr_matrix);
@@ -211,7 +211,7 @@ torch::Tensor csr_sparse_mv_mt(
 torch::Tensor coo_sparse_mv_mt(
         const std::tuple<std::vector<float_t>, std::vector<int32_t>, std::vector<int32_t>, int64_t> coo_matrix,
         const at::Tensor &x,
-        int16t num_threads
+        int16_t num_threads
 ) {
     const auto A_V = std::get<0>(coo_matrix);
     const auto A_COL_INDEX = std::get<1>(coo_matrix);
