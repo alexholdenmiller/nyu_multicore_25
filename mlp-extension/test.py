@@ -44,9 +44,9 @@ class MLPcpp_forward(nn.Module):
             raise RuntimeError("n_hidden must be at least one")
 
         self.hidden_dim = hidden_dim
-        self.lin_in = nn.Parameter(torch.Tensor(hidden_dim, input_size))
-        self.lin_out = nn.Parameter(torch.Tensor(output_size, hidden_dim))
-        self.layers = nn.Parameter(torch.Tensor(n_hidden - 1, hidden_dim, hidden_dim))
+        self.lin_in = torch.Tensor(hidden_dim, input_size)
+        self.lin_out = torch.Tensor(output_size, hidden_dim)
+        self.layers = torch.Tensor(n_hidden - 1, hidden_dim, hidden_dim)
         self.num_hidden_layers = n_hidden - 1
 
         self.reset_parameters()
@@ -54,12 +54,12 @@ class MLPcpp_forward(nn.Module):
     def reset_parameters(self):
         stdv = 1.0 / math.sqrt(self.hidden_dim)
         for weight in (self.lin_in, self.lin_out, self.layers):
-            weight.data.uniform_(-stdv, +stdv)
+            weight.uniform_(-stdv, +stdv)
 
     def load_parameters(self, state_dict):
-        self.lin_in.data = state_dict['lin_in.weight']
-        self.lin_out.data = state_dict['lin_out.weight']
-        self.layers.data = torch.stack([state_dict[layer_name] for layer_name in filter(lambda l: not (l == 'lin_in.weight' or l == 'lin_out.weight'), state_dict.keys())])
+        self.lin_in = state_dict['lin_in.weight']
+        self.lin_out = state_dict['lin_out.weight']
+        self.layers = torch.stack([state_dict[layer_name] for layer_name in filter(lambda l: not (l == 'lin_in.weight' or l == 'lin_out.weight'), state_dict.keys())])
 
     def forward(self, x):
         return mlp_cpp_lib.mlp_forward(x.squeeze(), self.lin_in, self.layers, self.lin_out, self.num_hidden_layers)
