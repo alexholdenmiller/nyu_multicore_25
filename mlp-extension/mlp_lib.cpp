@@ -80,7 +80,6 @@ std::tuple <at::Tensor, at::Tensor, at::Tensor> to_csr(const at::Tensor &matrix)
 std::tuple <std::vector<float_t>, std::vector<int32_t>, std::vector<int32_t>, int64_t> to_coo(const at::Tensor &matrix) {
     const int64_t m = matrix.size(0);
     const int64_t n = matrix.size(1);
-    const int64_t nnz = matrix.nonzero().size(0);
 
     std::vector<int32_t> COL_INDEX;
     std::vector<int32_t> ROW_INDEX;
@@ -144,7 +143,7 @@ torch::Tensor coo_sparse_mv(
     const auto A_V = std::get<0>(coo_matrix);
     const auto A_COL_INDEX = std::get<1>(coo_matrix);
     const auto A_ROW_INDEX = std::get<2>(coo_matrix);
-    const auto nnz = A_V.size();
+    const int nnz = (int) A_V.size();
     const auto m = std::get<3>(coo_matrix);
 
     // initialize arrays of result
@@ -174,32 +173,31 @@ torch::Tensor coo_sparse_mv(
 torch::Tensor csr_sparse_mv_mt(
         const std::tuple <at::Tensor, at::Tensor, at::Tensor> csr_matrix,
         const at::Tensor &x,
-        int8_t num_threads
+        int64_t n_threads
 ) {
     const auto A_V = std::get<0>(csr_matrix);
     const auto A_COL_INDEX = std::get<1>(csr_matrix);
     const auto A_ROW_INDEX = std::get<2>(csr_matrix);
-    const int64_t m = A_ROW_INDEX.size(0) - 1;
+    const int64_t m = A_ROW_INDEX.size(0) - 1;  // same as x.size(0)
 
     // initialize arrays of result
-    auto opt = torch::TensorOptions().dtype(torch::kFloat32).requires_grad(false);
-    torch::Tensor result = torch::zeros(m, opt);
+    // const torch::Tensor result = torch::zeros(m, torch::TensorOptions().dtype(torch::kFloat32).requires_grad(false));
+    std::vector<float_t> result (m, 0);
 
-    const int64_t step = ((m + num_threads - 2) / num_threads) + 1;
+    const int64_t step = ((m + n_threads - 2) / n_threads) + 1;
 
     // sparse matrix multiply vector
-    # pragma omp parallel num_threads(num_threads)
+    # pragma omp parallel num_threads(n_threads) shared(result)
     {
-        int16_t rank = omp_get_thread_num();
+        int64_t rank = omp_get_thread_num();
         for (int i = rank*step; i < std::min((rank+1) * step, m); i++) {
             for (int j = A_ROW_INDEX[i].item<int>(); j < A_ROW_INDEX[i+1].item<int>(); j++) {
-                result[i] += A_V[j] * x[A_COL_INDEX[j]];
+                result[i] += (A_V[j] * x[A_COL_INDEX[j]]).item<float>();
             }
         }
     }
-
     
-    return result;
+    return torch::tensor(result);
 }
 
 /**
@@ -213,7 +211,7 @@ torch::Tensor csr_sparse_mv_mt(
 torch::Tensor coo_sparse_mv_mt(
         const std::tuple<std::vector<float_t>, std::vector<int32_t>, std::vector<int32_t>, int64_t> coo_matrix,
         const at::Tensor &x,
-        int8_t num_threads
+        int16_t num_threads
 ) {
     const auto A_V = std::get<0>(coo_matrix);
     const auto A_COL_INDEX = std::get<1>(coo_matrix);
@@ -227,7 +225,7 @@ torch::Tensor coo_sparse_mv_mt(
     const int64_t step = ((nnz + num_threads - 2) / num_threads) + 1;
 
     // sparse matrix multiply vector
-    # pragma omp parallel num_threads(num_threads)
+    # pragma omp parallel num_threads(num_threads) shared(result)
     {
         int16_t rank = omp_get_thread_num();
         for (int ind = rank*step; ind < std::min((rank+1) * step, nnz); ind++) {
@@ -304,7 +302,7 @@ at::Tensor mlp_sparse_forward_mt_csr(
         std::vector<std::tuple <at::Tensor, at::Tensor, at::Tensor>> hidden_weights,
         std::tuple <at::Tensor, at::Tensor, at::Tensor> output_weights,
         int16_t num_layers,
-        int8_t num_threads
+        int16_t num_threads
 ) {
     torch::Tensor state = torch::relu(csr_sparse_mv_mt(in_weights, input, num_threads));
     for (int i = 0; i < num_layers; i++) {
@@ -328,7 +326,7 @@ at::Tensor mlp_sparse_forward_mt_coo(
         std::vector<std::tuple <std::vector<float_t>, std::vector<int32_t>, std::vector<int32_t>, int64_t>> hidden_weights,
         std::tuple <std::vector<float_t>, std::vector<int32_t>, std::vector<int32_t>, int64_t> output_weights,
         int16_t num_layers,
-        int8_t num_threads
+        int16_t num_threads
 ) {
     torch::Tensor state = torch::relu(coo_sparse_mv_mt(in_weights, input, num_threads));
     for (int i = 0; i < num_layers; i++) {

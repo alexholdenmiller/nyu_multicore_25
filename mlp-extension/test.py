@@ -44,9 +44,9 @@ class MLPcpp_forward(nn.Module):
             raise RuntimeError("n_hidden must be at least one")
 
         self.hidden_dim = hidden_dim
-        self.lin_in = nn.Parameter(torch.Tensor(hidden_dim, input_size))
-        self.lin_out = nn.Parameter(torch.Tensor(output_size, hidden_dim))
-        self.layers = nn.Parameter(torch.Tensor(n_hidden - 1, hidden_dim, hidden_dim))
+        self.lin_in = torch.Tensor(hidden_dim, input_size)
+        self.lin_out = torch.Tensor(output_size, hidden_dim)
+        self.layers = torch.Tensor(n_hidden - 1, hidden_dim, hidden_dim)
         self.num_hidden_layers = n_hidden - 1
 
         self.reset_parameters()
@@ -54,12 +54,12 @@ class MLPcpp_forward(nn.Module):
     def reset_parameters(self):
         stdv = 1.0 / math.sqrt(self.hidden_dim)
         for weight in (self.lin_in, self.lin_out, self.layers):
-            weight.data.uniform_(-stdv, +stdv)
+            weight.uniform_(-stdv, +stdv)
 
     def load_parameters(self, state_dict):
-        self.lin_in.data = state_dict['lin_in.weight']
-        self.lin_out.data = state_dict['lin_out.weight']
-        self.layers.data = torch.stack([state_dict[layer_name] for layer_name in filter(lambda l: not (l == 'lin_in.weight' or l == 'lin_out.weight'), state_dict.keys())])
+        self.lin_in = state_dict['lin_in.weight']
+        self.lin_out = state_dict['lin_out.weight']
+        self.layers = torch.stack([state_dict[layer_name] for layer_name in filter(lambda l: not (l == 'lin_in.weight' or l == 'lin_out.weight'), state_dict.keys())])
 
     def forward(self, x):
         return mlp_cpp_lib.mlp_forward(x.squeeze(), self.lin_in, self.layers, self.lin_out, self.num_hidden_layers)
@@ -127,14 +127,14 @@ class MLPcpp_sparse(MLPpy):
 
 
 if __name__ == "__main__":
-    input_size = 128
+    input_size = 256
     model_layers = 5
-    hidden_layer_features = 64
+    hidden_layer_features = 1024
     output_size = 8
-    NUM_THREADS = 16
+    NUM_THREADS = 32
     PRUNE = False
 
-    X = torch.randn(1, input_size, device=device)  # fix batch size to one
+    X = torch.randn(1, input_size, device=device, requires_grad=False)  # fix batch size to one
 
     print("initializing models...")
     mlp_py = MLPpy(input_size, hidden_layer_features, output_size, model_layers)
@@ -165,16 +165,16 @@ if __name__ == "__main__":
     print("Confirming all models output the same values...")
     o1 = mlp_py(X)
     o2 = mlp_cpp_p(X)
-    o3 = mlp_cpp_f(X)
-    o4 = mlp_cpp_s_csr(X)
-    o5 = mlp_cpp_s_csr(X, NUM_THREADS)
-    o6 = mlp_cpp_s_coo(X)
-    o7 = mlp_cpp_s_coo(X, NUM_THREADS)
     print("  ...is cpp primitives the same?", torch.allclose(o1, o2))
+    o3 = mlp_cpp_f(X)
     print("  ...is cpp full forward the same?", torch.allclose(o1, o3))
+    o4 = mlp_cpp_s_csr(X)
     print("  ...is cpp sparse csr the same?", torch.allclose(o1, o4))
+    o5 = mlp_cpp_s_csr(X, NUM_THREADS)
     print("  ...is cpp multithreaded csr the same?", torch.allclose(o1, o5))
+    o6 = mlp_cpp_s_coo(X)
     print("  ...is cpp sparse coo the same?", torch.allclose(o1, o6))
+    o7 = mlp_cpp_s_coo(X, NUM_THREADS)
     print("  ...is cpp multithreaded coo the same?", torch.allclose(o1, o7))
     
 

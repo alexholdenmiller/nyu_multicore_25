@@ -24,7 +24,7 @@ cd nyu_multicore_25
 module load python-3.9
 virtualenv venv
 source venv/bin/activate
-pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cpu
+pip install torch ninja --index-url https://download.pytorch.org/whl/cpu
 module load gcc-9.2 
 cd lltm-extension/ && python setup.py install
 python test.py
