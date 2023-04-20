@@ -110,25 +110,21 @@ std::tuple <std::vector<float_t>, std::vector<int32_t>, std::vector<int32_t>, in
  */
 torch::Tensor csr_sparse_mv(
         const std::tuple <at::Tensor, at::Tensor, at::Tensor> csr_matrix,
-        const at::Tensor &x) {
-
-    // Get the three arrays of matrix A
+        const at::Tensor &x
+) {
     const auto A_V = std::get<0>(csr_matrix);
     const auto A_COL_INDEX = std::get<1>(csr_matrix);
     const auto A_ROW_INDEX = std::get<2>(csr_matrix);
     const int64_t m = A_ROW_INDEX.size(0) - 1;
-//    const int64_t nnz = A_V.size(0);
 
-    // initialize arrays of result
-    torch::Tensor result = torch::zeros(m, A_V.options());
+    auto opt = torch::TensorOptions().dtype(torch::kFloat32).requires_grad(false);
+    torch::Tensor result = torch::zeros(m, opt);
 
     // sparse matrix multiply vector
     for (int i = 0; i < m; i++) {
-        float sum = 0;
         for (int j = A_ROW_INDEX[i].item<int>(); j < A_ROW_INDEX[i+1].item<int>(); j++) {
-            sum += A_V[j].item<float>() * x[A_COL_INDEX[j].item<int>()].item<float>();
+            result[i] += A_V[j] * x[A_COL_INDEX[j]];
         }
-        result[i] = sum;
     }
 
     return result;
