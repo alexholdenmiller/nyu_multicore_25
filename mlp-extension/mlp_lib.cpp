@@ -196,7 +196,7 @@ torch::Tensor csr_sparse_mv_mt(
         }
     }
     
-    return torch::from_blob(result);
+    return torch::tensor(result);
 }
 
 /**
