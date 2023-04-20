@@ -80,7 +80,6 @@ std::tuple <at::Tensor, at::Tensor, at::Tensor> to_csr(const at::Tensor &matrix)
 std::tuple <std::vector<float_t>, std::vector<int32_t>, std::vector<int32_t>, int64_t> to_coo(const at::Tensor &matrix) {
     const int64_t m = matrix.size(0);
     const int64_t n = matrix.size(1);
-    const int64_t nnz = matrix.nonzero().size(0);
 
     std::vector<int32_t> COL_INDEX;
     std::vector<int32_t> ROW_INDEX;
@@ -144,7 +143,7 @@ torch::Tensor coo_sparse_mv(
     const auto A_V = std::get<0>(coo_matrix);
     const auto A_COL_INDEX = std::get<1>(coo_matrix);
     const auto A_ROW_INDEX = std::get<2>(coo_matrix);
-    const auto nnz = A_V.size();
+    const int nnz = (int) A_V.size();
     const auto m = std::get<3>(coo_matrix);
 
     // initialize arrays of result
