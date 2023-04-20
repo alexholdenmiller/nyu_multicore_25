@@ -132,7 +132,7 @@ if __name__ == "__main__":
     hidden_layer_features = 1024
     output_size = 8
     NUM_THREADS = 32
-    PRUNE = False
+    PRUNE = True
 
     X = torch.randn(1, input_size, device=device, requires_grad=False)  # fix batch size to one
 
