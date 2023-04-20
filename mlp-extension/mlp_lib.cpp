@@ -186,7 +186,7 @@ torch::Tensor csr_sparse_mv_mt(
     const int64_t step = ((m + num_threads - 2) / num_threads) + 1;
 
     // sparse matrix multiply vector
-    # pragma omp parallel num_threads(num_threads)
+    # pragma omp parallel num_threads(num_threads) shared(result)
     {
         int16_t rank = omp_get_thread_num();
         for (int i = rank*step; i < std::min((rank+1) * step, m); i++) {
@@ -225,7 +225,7 @@ torch::Tensor coo_sparse_mv_mt(
     const int64_t step = ((nnz + num_threads - 2) / num_threads) + 1;
 
     // sparse matrix multiply vector
-    # pragma omp parallel num_threads(num_threads)
+    # pragma omp parallel num_threads(num_threads) shared(result)
     {
         int16_t rank = omp_get_thread_num();
         for (int ind = rank*step; ind < std::min((rank+1) * step, nnz); ind++) {
