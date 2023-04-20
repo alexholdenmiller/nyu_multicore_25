@@ -5,7 +5,7 @@ import torch
 from torch import nn
 import torch.nn.functional as F
 import torch.nn.utils.prune as prune
-from baseline_model import MLP as MLPpy, prune
+from base_model import MLP as MLPpy, prune
 
 # Our module!
 import mlp_cpp_lib
@@ -127,10 +127,10 @@ class MLPcpp_sparse(MLPpy):
 
 
 if __name__ == "__main__":
-    input_size = 256
-    model_layers = 5
-    hidden_layer_features = 1024
-    output_size = 8
+    input_size = 128
+    model_layers = 3
+    hidden_layer_features = 2048
+    output_size = 1
     NUM_THREADS = 32
     PRUNE = True
 
@@ -235,7 +235,7 @@ if __name__ == "__main__":
 
     print()
     print("Running model simulations...")
-    N = 50
+    N = 100
     with torch.no_grad():
         for _ in range(N):
             py_compute()
