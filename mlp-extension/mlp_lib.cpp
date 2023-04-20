@@ -172,7 +172,7 @@ torch::Tensor coo_sparse_mv(
 torch::Tensor csr_sparse_mv_mt(
         const std::tuple <at::Tensor, at::Tensor, at::Tensor> csr_matrix,
         const at::Tensor &x,
-        int16_t n_threads
+        int64_t n_threads
 ) {
     const auto A_V = std::get<0>(csr_matrix);
     const auto A_COL_INDEX = std::get<1>(csr_matrix);
@@ -188,14 +188,13 @@ torch::Tensor csr_sparse_mv_mt(
     // sparse matrix multiply vector
     # pragma omp parallel num_threads(n_threads) shared(result)
     {
-        int16_t rank = omp_get_thread_num();
+        int64_t rank = omp_get_thread_num();
         for (int i = rank*step; i < std::min((rank+1) * step, m); i++) {
             for (int j = A_ROW_INDEX[i].item<int>(); j < A_ROW_INDEX[i+1].item<int>(); j++) {
                 result[i] += A_V[j] * x[A_COL_INDEX[j]];
             }
         }
     }
-
     
     return result;
 }
