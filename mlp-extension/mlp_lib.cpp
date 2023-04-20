@@ -169,7 +169,7 @@ torch::Tensor coo_sparse_mv(
  * @param x tensor
  * @return a resulting tensor
  */
-torch::Tensor csr_sparse_mv_mt(
+std::vector<float_t> csr_sparse_mv_mt(
         const std::tuple <at::Tensor, at::Tensor, at::Tensor> csr_matrix,
         const at::Tensor &x,
         int64_t n_threads
@@ -295,7 +295,7 @@ at::Tensor mlp_sparse_forward_coo(
  * @param num_layers
  * @return
 */
-at::Tensor mlp_sparse_forward_mt_csr(
+std::vector<float_t> mlp_sparse_forward_mt_csr(
         torch::Tensor input,
         std::tuple <at::Tensor, at::Tensor, at::Tensor> in_weights,
         std::vector<std::tuple <at::Tensor, at::Tensor, at::Tensor>> hidden_weights,
