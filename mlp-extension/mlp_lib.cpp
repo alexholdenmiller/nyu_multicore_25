@@ -302,7 +302,7 @@ at::Tensor mlp_sparse_forward_mt_csr(
         int16_t num_layers,
         int16_t num_threads
 ) {
-    state = torch::relu(csr_sparse_mv_mt(in_weights, input, num_threads));
+    torch::Tensor state = torch::relu(csr_sparse_mv_mt(in_weights, input, num_threads));
     for (int i = 0; i < num_layers; i++) {
         state = torch::relu(csr_sparse_mv_mt(hidden_weights[i], state, num_threads));
     }
