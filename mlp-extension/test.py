@@ -134,7 +134,7 @@ if __name__ == "__main__":
     NUM_THREADS = 16
     PRUNE = True
 
-    X = torch.randn(1, input_size, device=device)  # fix batch size to one
+    X = torch.randn(1, input_size, device=device, requires_grad=False)  # fix batch size to one
 
     print("initializing models...")
     mlp_py = MLPpy(input_size, hidden_layer_features, output_size, model_layers)
