@@ -181,7 +181,7 @@ torch::Tensor csr_sparse_mv_mt(
 
     // initialize arrays of result
     auto opt = torch::TensorOptions().dtype(torch::kFloat32).requires_grad(false);
-    torch::Tensor result = torch::zeros(m, x.options());
+    torch::Tensor result = torch::zeros(m, opt);
 
     const int64_t step = ((m + num_threads - 2) / num_threads) + 1;
 
@@ -191,7 +191,7 @@ torch::Tensor csr_sparse_mv_mt(
         int16_t rank = omp_get_thread_num();
         for (int i = rank*step; i < std::min((rank+1) * step, m); i++) {
             for (int j = A_ROW_INDEX[i].item<int>(); j < A_ROW_INDEX[i+1].item<int>(); j++) {
-                result[i] += A_V[j] * x[A_COL_INDEX[j]];
+                result[i] = result[i] + A_V[j] * x[A_COL_INDEX[j]];
             }
         }
     }
