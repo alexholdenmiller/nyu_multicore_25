@@ -129,10 +129,10 @@ class MLPcpp_sparse(MLPpy):
 if __name__ == "__main__":
     input_size = 256
     model_layers = 5
-    hidden_layer_features = 128
+    hidden_layer_features = 1024
     output_size = 8
-    NUM_THREADS = 16
-    PRUNE = True
+    NUM_THREADS = 32
+    PRUNE = False
 
     X = torch.randn(1, input_size, device=device, requires_grad=False)  # fix batch size to one
 
